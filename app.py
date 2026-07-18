@@ -259,7 +259,6 @@ def dessiner_schema_reservoir(resultat):
                                   facecolor=couleur, edgecolor="#333333", linewidth=1.1)
         ax.add_patch(rect)
 
-        # Étiquette : numéro de virole + épaisseur, centrée dans le rectangle
         luminosite = 0.299 * couleur[0] + 0.587 * couleur[1] + 0.114 * couleur[2]
         couleur_texte = "white" if luminosite < 0.55 else "black"
         ax.text(largeur_dessin / 2, y_bas + h / 2,
@@ -268,12 +267,10 @@ def dessiner_schema_reservoir(resultat):
 
         y_bas += h
 
-    # Ligne du niveau de liquide de conception
     ax.axhline(H_liquide, color="#1f77b4", linestyle="--", linewidth=1.8)
     ax.text(largeur_dessin + 0.15, H_liquide, f"Niveau liquide\nH = {H_liquide:.2f} m",
             va="center", fontsize=8.5, color="#1f77b4")
 
-    # Sommet réel de la robe
     if H_shell > H_liquide:
         ax.text(largeur_dessin + 0.15, H_shell, f"Sommet robe\nH = {H_shell:.2f} m",
                 va="center", fontsize=8.5, color="#555555")
@@ -298,24 +295,24 @@ st.title("🏗️ Calculateur API 650")
 
 st.sidebar.header("Paramètres")
 
-D = st.sidebar.number_input("Diamètre (m)", value=30.00, step=0.5)
+D = st.sidebar.number_input("Diamètre (m)", value=0.0, step=0.5)
 
 st.sidebar.markdown("**Hauteurs (distinctes)**")
 H_shell = st.sidebar.number_input(
-    "Hauteur totale de la robe (m)", value=15.50, step=0.5,
+    "Hauteur totale de la robe (m)", value=0.0, step=0.5,
     help="Hauteur physique réelle de la tôle, détermine le nombre de viroles."
 )
 H_liquide = st.sidebar.number_input(
-    "Niveau de liquide de conception (m)", value=15.00, step=0.5,
+    "Niveau de liquide de conception (m)", value=0.0, step=0.5,
     help="Niveau maximal de remplissage, utilisé dans TOUTES les formules "
          "de contrainte. Peut être < hauteur de la robe (freeboard)."
 )
 
-G = st.sidebar.number_input("Densité", value=1.00, step=0.05)
-Sd = st.sidebar.number_input("Contrainte Design (Sd)", value=179.00, step=1.0)
-St = st.sidebar.number_input("Contrainte Test (St)", value=190.00, step=1.0)
-CA = st.sidebar.number_input("Corrosion Allowance (mm)", value=1.50, step=0.1)
-h_course_mm = st.sidebar.number_input("Hauteur virole (mm)", value=2000, step=100)
+G = st.sidebar.number_input("Densité", value=0.0, step=0.05)
+Sd = st.sidebar.number_input("Contrainte Design (Sd)", value=0.0, step=1.0)
+St = st.sidebar.number_input("Contrainte Test (St)", value=0.0, step=1.0)
+CA = st.sidebar.number_input("Corrosion Allowance (mm)", value=0.0, step=0.1)
+h_course_mm = st.sidebar.number_input("Hauteur virole (mm)", value=0, step=100)
 method = st.sidebar.selectbox("Méthode", ["AUTO", "ONEFOOT", "VDP"])
 
 st.sidebar.markdown("---")
@@ -324,14 +321,17 @@ st.sidebar.subheader("Options bonus")
 use_pressure = st.sidebar.checkbox("Toit fixe — pression interne")
 P = st.sidebar.number_input("Pression P (kPa)", value=0.0, step=0.5) if use_pressure else 0
 
-use_wind = st.sidebar.checkbox("Vérifier ceinture de vent", value=True)
-V = st.sidebar.number_input("Vitesse de vent (km/h)", value=150.0, step=5.0) if use_wind else 0
+use_wind = st.sidebar.checkbox("Vérifier ceinture de vent", value=False)
+V = st.sidebar.number_input("Vitesse de vent (km/h)", value=0.0, step=5.0) if use_wind else 0
 
-L_plaque_mm = st.sidebar.number_input("Longueur tôle standard (mm)", value=6000, step=100)
+L_plaque_mm = st.sidebar.number_input("Longueur tôle standard (mm)", value=0, step=100)
 
 st.sidebar.markdown("---")
 
 if st.sidebar.button("Lancer les calculs"):
+    if D == 0 or H_shell == 0 or H_liquide == 0 or G == 0 or Sd == 0 or St == 0 or h_course_mm == 0 or L_plaque_mm == 0:
+        st.error("Merci de renseigner toutes les valeurs obligatoires (diamètre, hauteurs, densité, contraintes, hauteur de virole, longueur de tôle) avant de lancer le calcul.")
+        st.stop()
     resultat = calculer_reservoir(
         D=D, H_shell=H_shell, H_liquide=H_liquide, h_course_mm=h_course_mm,
         G=G, CA=CA, Sd=Sd, St=St,
