@@ -7,11 +7,11 @@ import matplotlib.colors as mcolors
 import math
 
 # ============================================================
-# API 650 — FONCTIONS DE CALCUL (validées contre Annexe K)
+# API 650 — CALCULATION FUNCTIONS (validated against Annex K)
 # ============================================================
 
 def table_min(D):
-    """Table 5.1a — épaisseur minimale (mm) selon diamètre (m)"""
+    """Table 5.1a — minimum thickness (mm) based on diameter (m)"""
     if D < 15:
         return 5
     elif D < 36:
@@ -23,22 +23,22 @@ def table_min(D):
 
 
 def round_commercial(t, step=0.5):
-    """Arrondi commercial vers le haut, pas de 0.5 mm"""
+    """Round up to the nearest commercial thickness, 0.5 mm step"""
     return math.ceil(t / step) * step
 
 
 def one_foot_td(D, H, G, Sd, CA):
-    """§5.6.3.2 — épaisseur de conception"""
+    """§5.6.3.2 — design thickness"""
     return (4.9 * D * (H - 0.3) * G) / Sd + CA
 
 
 def one_foot_tt(D, H, St):
-    """§5.6.3.2 — épaisseur d'essai hydrostatique"""
+    """§5.6.3.2 — hydrostatic test thickness"""
     return (4.9 * D * (H - 0.3)) / St
 
 
 def vdp_course1(D, H, G, S, CA, is_design):
-    """§5.6.4.4 — virole du bas, méthode VDP (avec plafond tp)"""
+    """§5.6.4.4 — bottom course, VDP method (capped by tp)"""
     if is_design:
         tp = (4.9 * D * (H - 0.3) * G) / S + CA
         factor = 1.06 - (0.0696 * D / H) * math.sqrt((H * G) / S)
@@ -51,7 +51,7 @@ def vdp_course1(D, H, G, S, CA, is_design):
 
 
 def vdp_upper_course(tL, tu_init, D, H_local, r, S, G, CA, is_design, max_iter=8, tol=0.02):
-    """§5.6.4.6-8 — point critique x, boucle de convergence"""
+    """§5.6.4.6-8 — critical point x, convergence loop"""
     tu = tu_init
     for _ in range(max_iter):
         K = tL / tu
@@ -72,7 +72,7 @@ def vdp_upper_course(tL, tu_init, D, H_local, r, S, G, CA, is_design, max_iter=8
 
 
 def vdp_course2(h1, r, t1, t2a):
-    """§5.6.4.5 — ratio + interpolation pour la 2e virole"""
+    """§5.6.4.5 — ratio + interpolation for the 2nd course"""
     ratio = h1 / math.sqrt(r * t1)
     if ratio <= 1.375:
         t2 = t1
@@ -84,43 +84,43 @@ def vdp_course2(h1, r, t1, t2a):
 
 
 def heff_pressure(H, P, G):
-    """Bonus 1 — Annexe F.2.1 — pression interne toit fixe
-    H doit déjà être le H "liquide" (jamais le H physique de la robe)."""
+    """Bonus 1 — Annex F.2.1 — fixed roof internal pressure
+    H must already be the "liquid" H (never the physical shell H)."""
     if P >= 1:
         return H + P / (9.8 * G)
     return H
 
 
 def wind_girder_h1(D, t, V):
-    """Bonus 2 — §5.9.6.1 — hauteur max non raidie"""
+    """Bonus 2 — §5.9.6.1 — maximum unstiffened height"""
     Pwv = 1.48 * (V / 190) ** 2
     Pwd = Pwv + 0.24
     return 9.47 * t * math.sqrt((t / D) ** 3 * (1.72 / Pwd))
 
 
 def nombre_plaques(D, L_plaque_mm=6000):
-    """Bonus 4 — nombre de tôles par virole"""
+    """Bonus 4 — number of plates per course"""
     return math.ceil((math.pi * D * 1000) / L_plaque_mm)
 
 
 def h_local_liquide(H_liquide, cum_bottom_m):
-    """Distance entre le bas de la virole et le niveau de liquide de conception."""
+    """Distance between the bottom of the course and the design liquid level."""
     return H_liquide - cum_bottom_m
 
 
 def calculer_reservoir(D, H_shell, H_liquide, h_course_mm, G, CA, Sd, St,
                         method="AUTO", P=0, V=0, L_plaque_mm=6000):
-    """Calcul complet du programme d'épaisseurs, bas -> haut."""
+    """Full thickness schedule calculation, bottom -> top."""
 
     r = (D * 1000) / 2
 
     freeboard_msg = ""
     if H_liquide > H_shell:
-        freeboard_msg = "ATTENTION : H_liquide > H_shell — plafonné à H_shell."
+        freeboard_msg = "WARNING: Liquid level > shell height — capped to shell height."
         H_liquide = H_shell
     elif H_liquide < H_shell:
         freeboard = H_shell - H_liquide
-        freeboard_msg = f"Freeboard (marge de sécurité) = {freeboard:.2f} m"
+        freeboard_msg = f"Freeboard (safety margin) = {freeboard:.2f} m"
 
     if method == "AUTO":
         method_used = "ONEFOOT" if D <= 61 else "VDP"
@@ -134,9 +134,20 @@ def calculer_reservoir(D, H_shell, H_liquide, h_course_mm, G, CA, Sd, St,
         ratio_LH = L / H_liquide
         validity_msg = (f"VDP applicable (L/H={ratio_LH:.3f})"
                          if ratio_LH <= 1000 / 6
-                         else f"ATTENTION : hors domaine VDP (L/H={ratio_LH:.3f})")
-    elif D > 61:
-        validity_msg = "ATTENTION : D > 61 m, One-Foot Method non valide"
+                         else f"WARNING: outside VDP domain (L/H={ratio_LH:.3f})")
+    elif method_used == "ONEFOOT" and D > 61:
+        # Invalid case: One-Foot Method forbidden above 61 m (§5.6.3.1).
+        # We stop here — no course calculation is performed.
+        return {
+            "D": D, "H_shell": H_shell, "H_liquide": H_liquide,
+            "method_used": method_used,
+            "valid": False,
+            "validity_msg": "ERROR: One-Foot Method is not allowed for D > 61 m (§5.6.3.1 API 650). Please select the VDP or AUTO method.",
+            "freeboard_msg": freeboard_msg,
+            "courses": [],
+            "wind": None,
+            "poids_total_kg": 0,
+        }
 
     n_full = int((H_shell * 1000) // h_course_mm)
     remainder = (H_shell * 1000) - n_full * h_course_mm
@@ -192,33 +203,34 @@ def calculer_reservoir(D, H_shell, H_liquide, h_course_mm, G, CA, Sd, St,
         t_use_prev = t_use
 
         courses.append({
-            "Virole": i + 1,
-            "Hauteur (m)": round(heights[i] / 1000, 3),
-            "H local liquide (m)": round(max(h_local, 0), 2),
+            "Course": i + 1,
+            "Height (m)": round(heights[i] / 1000, 3),
+            "Local liquid head (m)": round(max(h_local, 0), 2),
             "td (mm)": round(td, 2),
             "tt (mm)": round(tt, 2),
             "t min (mm)": tmin,
-            "t gouvernante (mm)": round(governing, 2),
-            "Épaisseur (mm)": t_use,
-            "Nb Plaques": nombre_plaques(D, L_plaque_mm),
+            "Governing t (mm)": round(governing, 2),
+            "Thickness (mm)": t_use,
+            "Nb Plates": nombre_plaques(D, L_plaque_mm),
         })
 
     wind_result = None
     if V > 0:
-        t_ref = min(c["Épaisseur (mm)"] for c in courses)
+        t_ref = min(c["Thickness (mm)"] for c in courses)
         H1 = wind_girder_h1(D, t_ref, V)
-        H_transf = sum(c["Hauteur (m)"] * 1000 * (t_ref / c["Épaisseur (mm)"]) ** 2.5 for c in courses) / 1000
-        wind_result = {"H1": round(H1, 2), "H_transformee": round(H_transf, 2), "ok": H_transf <= H1}
+        H_transf = sum(c["Height (m)"] * 1000 * (t_ref / c["Thickness (mm)"]) ** 2.5 for c in courses) / 1000
+        wind_result = {"H1": round(H1, 2), "H_transformed": round(H_transf, 2), "ok": H_transf <= H1}
 
     density = 7850
     poids_total = sum(
-        math.pi * D * c["Hauteur (m)"] * (c["Épaisseur (mm)"] / 1000) * density
+        math.pi * D * c["Height (m)"] * (c["Thickness (mm)"] / 1000) * density
         for c in courses
     )
 
     return {
         "D": D, "H_shell": H_shell, "H_liquide": H_liquide,
         "method_used": method_used,
+        "valid": True,
         "validity_msg": validity_msg,
         "freeboard_msg": freeboard_msg,
         "courses": courses,
@@ -228,58 +240,61 @@ def calculer_reservoir(D, H_shell, H_liquide, h_course_mm, G, CA, Sd, St,
 
 
 # ============================================================
-# SCHEMA VISUEL — coupe/élévation du réservoir
+# VISUAL DIAGRAM — tank elevation / cross-section
 # ============================================================
 def dessiner_schema_reservoir(resultat):
-    """Dessine une coupe verticale du réservoir : chaque virole est un
-    rectangle empilé, coloré selon son épaisseur (plus foncé = plus épais).
-    Le niveau de liquide de conception est indiqué par une ligne pointillée."""
+    """Draws a vertical cross-section of the tank: each course is a
+    stacked rectangle, colored by its thickness (darker = thicker).
+    The design liquid level is shown with a dashed line."""
 
     courses = resultat["courses"]
     D = resultat["D"]
     H_liquide = resultat["H_liquide"]
     H_shell = resultat["H_shell"]
 
-    epaisseurs = [c["Épaisseur (mm)"] for c in courses]
+    epaisseurs = [c["Thickness (mm)"] for c in courses]
     tmin_c, tmax_c = min(epaisseurs), max(epaisseurs)
     norm = mcolors.Normalize(vmin=tmin_c, vmax=max(tmax_c, tmin_c + 0.1))
     cmap = plt.get_cmap("Blues")
 
-    largeur_dessin = 4.0  # largeur fixe du schéma (représentation, pas à l'échelle du diamètre)
+    largeur_dessin = 4.0  # fixed drawing width (representation only, not to diameter scale)
 
     fig, ax = plt.subplots(figsize=(4.5, 7))
 
     y_bas = 0.0
     for c in courses:
-        h = c["Hauteur (m)"]
-        t = c["Épaisseur (mm)"]
+        h = c["Height (m)"]
+        t = c["Thickness (mm)"]
         couleur = cmap(norm(t))
 
         rect = patches.Rectangle((0, y_bas), largeur_dessin, h,
                                   facecolor=couleur, edgecolor="#333333", linewidth=1.1)
         ax.add_patch(rect)
 
+        # Label: course number + thickness, centered inside the rectangle
         luminosite = 0.299 * couleur[0] + 0.587 * couleur[1] + 0.114 * couleur[2]
         couleur_texte = "white" if luminosite < 0.55 else "black"
         ax.text(largeur_dessin / 2, y_bas + h / 2,
-                 f"V{c['Virole']} — {t:.1f} mm",
+                 f"C{c['Course']} — {t:.1f} mm",
                  ha="center", va="center", fontsize=9, color=couleur_texte, weight="bold")
 
         y_bas += h
 
+    # Design liquid level line
     ax.axhline(H_liquide, color="#1f77b4", linestyle="--", linewidth=1.8)
-    ax.text(largeur_dessin + 0.15, H_liquide, f"Niveau liquide\nH = {H_liquide:.2f} m",
+    ax.text(largeur_dessin + 0.15, H_liquide, f"Liquid level\nH = {H_liquide:.2f} m",
             va="center", fontsize=8.5, color="#1f77b4")
 
+    # Actual top of shell
     if H_shell > H_liquide:
-        ax.text(largeur_dessin + 0.15, H_shell, f"Sommet robe\nH = {H_shell:.2f} m",
+        ax.text(largeur_dessin + 0.15, H_shell, f"Shell top\nH = {H_shell:.2f} m",
                 va="center", fontsize=8.5, color="#555555")
 
     ax.set_xlim(-0.3, largeur_dessin + 2.3)
     ax.set_ylim(0, max(H_shell, y_bas) * 1.05)
     ax.set_xticks([])
-    ax.set_ylabel("Hauteur (m)")
-    ax.set_title(f"Coupe de la robe — D = {D:.1f} m", fontsize=11, weight="bold")
+    ax.set_ylabel("Height (m)")
+    ax.set_title(f"Shell cross-section — D = {D:.1f} m", fontsize=11, weight="bold")
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
     ax.spines["bottom"].set_visible(False)
@@ -288,49 +303,50 @@ def dessiner_schema_reservoir(resultat):
 
 
 # ============================================================
-# INTERFACE STREAMLIT
+# STREAMLIT INTERFACE
 # ============================================================
-st.set_page_config(page_title="Calculateur API 650", layout="wide")
-st.title("🏗️ Calculateur API 650")
+st.set_page_config(page_title="API 650 Calculator", page_icon="🏗️", layout="wide")
+st.title("🏗️ API 650 Calculator")
+st.caption("Your tool for calculation and design of a storage reservoir")
 
-st.sidebar.header("Paramètres")
+st.sidebar.header("Parameters")
 
-D = st.sidebar.number_input("Diamètre (m)", value=0.0, step=0.5)
+D = st.sidebar.number_input("Diameter (m)", value=0.0, step=0.5)
 
-st.sidebar.markdown("**Hauteurs (distinctes)**")
+st.sidebar.markdown("**Heights (distinct)**")
 H_shell = st.sidebar.number_input(
-    "Hauteur totale de la robe (m)", value=0.0, step=0.5,
-    help="Hauteur physique réelle de la tôle, détermine le nombre de viroles."
+    "Total shell height (m)", value=0.0, step=0.5,
+    help="Actual physical height of the plating, determines the number of courses."
 )
 H_liquide = st.sidebar.number_input(
-    "Niveau de liquide de conception (m)", value=0.0, step=0.5,
-    help="Niveau maximal de remplissage, utilisé dans TOUTES les formules "
-         "de contrainte. Peut être < hauteur de la robe (freeboard)."
+    "Design liquid level (m)", value=0.0, step=0.5,
+    help="Maximum fill level, used in ALL stress formulas. "
+         "Can be lower than the shell height (freeboard)."
 )
 
-G = st.sidebar.number_input("Densité", value=0.0, step=0.05)
-Sd = st.sidebar.number_input("Contrainte Design (Sd)", value=0.0, step=1.0)
-St = st.sidebar.number_input("Contrainte Test (St)", value=0.0, step=1.0)
-CA = st.sidebar.number_input("Corrosion Allowance (mm)", value=0.0, step=0.1)
-h_course_mm = st.sidebar.number_input("Hauteur virole (mm)", value=0, step=100)
-method = st.sidebar.selectbox("Méthode", ["AUTO", "ONEFOOT", "VDP"])
+G = st.sidebar.number_input("Specific gravity", value=0.0, step=0.05)
+Sd = st.sidebar.number_input("Design stress (Sd)", value=0.0, step=1.0)
+St = st.sidebar.number_input("Test stress (St)", value=0.0, step=1.0)
+CA = st.sidebar.number_input("Corrosion allowance (mm)", value=0.0, step=0.1)
+h_course_mm = st.sidebar.number_input("Course height (mm)", value=0, step=100)
+method = st.sidebar.selectbox("Method", ["AUTO", "ONEFOOT", "VDP"])
 
 st.sidebar.markdown("---")
-st.sidebar.subheader("Options bonus")
+st.sidebar.subheader("Bonus options")
 
-use_pressure = st.sidebar.checkbox("Toit fixe — pression interne")
-P = st.sidebar.number_input("Pression P (kPa)", value=0.0, step=0.5) if use_pressure else 0
+use_pressure = st.sidebar.checkbox("Fixed roof — internal pressure")
+P = st.sidebar.number_input("Pressure P (kPa)", value=0.0, step=0.5) if use_pressure else 0
 
-use_wind = st.sidebar.checkbox("Vérifier ceinture de vent", value=False)
-V = st.sidebar.number_input("Vitesse de vent (km/h)", value=0.0, step=5.0) if use_wind else 0
+use_wind = st.sidebar.checkbox("Check wind girder", value=False)
+V = st.sidebar.number_input("Wind speed (km/h)", value=0.0, step=5.0) if use_wind else 0
 
-L_plaque_mm = st.sidebar.number_input("Longueur tôle standard (mm)", value=0, step=100)
+L_plaque_mm = st.sidebar.number_input("Standard plate length (mm)", value=0, step=100)
 
 st.sidebar.markdown("---")
 
-if st.sidebar.button("Lancer les calculs"):
+if st.sidebar.button("Run calculation"):
     if D == 0 or H_shell == 0 or H_liquide == 0 or G == 0 or Sd == 0 or St == 0 or h_course_mm == 0 or L_plaque_mm == 0:
-        st.error("Merci de renseigner toutes les valeurs obligatoires (diamètre, hauteurs, densité, contraintes, hauteur de virole, longueur de tôle) avant de lancer le calcul.")
+        st.error("Please fill in all required values (diameter, heights, specific gravity, stresses, course height, plate length) before running the calculation.")
         st.stop()
     resultat = calculer_reservoir(
         D=D, H_shell=H_shell, H_liquide=H_liquide, h_course_mm=h_course_mm,
@@ -342,33 +358,37 @@ if st.sidebar.button("Lancer les calculs"):
 if "resultat" in st.session_state:
     res = st.session_state["resultat"]
 
+    if not res["valid"]:
+        st.error(res["validity_msg"])
+        st.stop()
+
     if res["freeboard_msg"]:
         st.caption(f"ℹ️ {res['freeboard_msg']}")
 
     col_table, col_schema = st.columns([2, 1])
 
     with col_table:
-        st.subheader("Résultats par virole")
+        st.subheader("Results by course")
         df = pd.DataFrame(res["courses"])
         st.dataframe(df, use_container_width=True)
 
-        st.info(f"Méthode utilisée : **{res['method_used']}**")
+        st.info(f"Method used: **{res['method_used']}**")
         if res["validity_msg"]:
             st.warning(res["validity_msg"])
 
     with col_schema:
-        st.subheader("Schéma de la robe")
+        st.subheader("Shell diagram")
         fig = dessiner_schema_reservoir(res)
         st.pyplot(fig)
 
     if res["wind"]:
-        st.subheader("Bonus — Ceinture de vent")
+        st.subheader("Bonus — Wind girder")
         c1, c2, c3 = st.columns(3)
         c1.metric("H1 (m)", res["wind"]["H1"])
-        c2.metric("H transformée (m)", res["wind"]["H_transformee"])
-        c3.metric("Statut", "✅ OK" if res["wind"]["ok"] else "⚠️ Requise")
+        c2.metric("Transformed H (m)", res["wind"]["H_transformed"])
+        c3.metric("Status", "✅ OK" if res["wind"]["ok"] else "⚠️ Required")
 
     st.subheader("Bonus — Fabrication")
-    st.metric("Poids total de la robe (kg)", f"{res['poids_total_kg']:.0f}")
+    st.metric("Total shell weight (kg)", f"{res['poids_total_kg']:.0f}")
 
-    st.success("Calculs terminés avec succès !")
+    st.success("Calculation completed successfully!")
