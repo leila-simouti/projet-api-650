@@ -11,7 +11,7 @@ import math
 # ============================================================
 
 # Table 5.2a (SI units) — Permissible plate materials and allowable stresses (MPa)
-materials = {
+MATERIALS = {
  # --- ASTM Specifications ---
   "ASTM A283 Grade C":         { "Sd": 137, "St": 154 },
   "ASTM A285 Grade C":         { "Sd": 137, "St": 154 },
