@@ -12,7 +12,7 @@ import math
 
 # Table 5.2a (SI units) — Permissible plate materials and allowable stresses (MPa)
 const materials = {
- // --- ASTM Specifications ---
+ # --- ASTM Specifications ---
   "ASTM A283 Grade C":         { "Sd": 137, "St": 154 },
   "ASTM A285 Grade C":         { "Sd": 137, "St": 154 },
   "ASTM A131 Grade A/B":       { "Sd": 157, "St": 171 },
@@ -28,23 +28,23 @@ const materials = {
   "ASTM A662 Grade B":         { "Sd": 180, "St": 193 },
   "ASTM A662 Grade C":         { "Sd": 194, "St": 208 },
  
-  // A537M — thickness-dependent (two thickness ranges each)
+  # A537M — thickness-dependent (two thickness ranges each)
   "ASTM A537 Class 1 (t<=65mm)":      { "Sd": 194, "St": 208 },
   "ASTM A537 Class 1 (65<t<=100mm)":  { "Sd": 180, "St": 193 },
   "ASTM A537 Class 2 (t<=65mm)":      { "Sd": 220, "St": 236 },
   "ASTM A537 Class 2 (65<t<=100mm)":  { "Sd": 206, "St": 221 },
  
-  // A633M
+  # A633M
   "ASTM A633 Grade C/D (t<=65mm)":     { "Sd": 194, "St": 208 },
   "ASTM A633 Grade C/D (65<t<=100mm)": { "Sd": 180, "St": 193 },
  
   "ASTM A737 Grade B":         { "Sd": 194, "St": 208 },
  
-  // A841M
+  # A841M
   "ASTM A841 Class 1 (Grade A/B)": { "Sd": 194, "St": 208 },
   "ASTM A841 Class 2 (Grade A/B)": { "Sd": 220, "St": 236 },
  
-  // --- CSA Specifications ---
+  #--- CSA Specifications ---
   "CSA G40.21 Grade 260W":            { "Sd": 164, "St": 176 },
   "CSA G40.21 Grade 260WT":           { "Sd": 164, "St": 176 },
   "CSA G40.21 Grade 300W":            { "Sd": 176, "St": 189 },
@@ -53,19 +53,19 @@ const materials = {
   "CSA G40.21 Grade 350WT (t<=65mm)":     { "Sd": 180, "St": 193 },
   "CSA G40.21 Grade 350WT (65<t<=100mm)": { "Sd": 180, "St": 193 },
  
-  // --- National Standards (generic grades, no spec name given in table) ---
+  # --- National Standards (generic grades, no spec name given in table) ---
   "National Standard Grade 235":  { "Sd": 137, "St": 154 },
   "National Standard Grade 250":  { "Sd": 157, "St": 171 },
   "National Standard Grade 275":  { "Sd": 167, "St": 184 },
  
-  // --- ISO Specifications ---
+  # --- ISO Specifications ---
   "ISO 630 S275C/D (t<=16mm)":        { "Sd": 164, "St": 176 },
   "ISO 630 S275C/D (16<t<=40mm)":     { "Sd": 164, "St": 176 },
   "ISO 630 S355C/D (t<=16mm)":        { "Sd": 188, "St": 201 },
   "ISO 630 S355C/D (16<t<=40mm)":     { "Sd": 188, "St": 201 },
   "ISO 630 S355C/D (40<t<=50mm)":     { "Sd": 188, "St": 201 },
  
-  // --- EN Specifications ---
+  # --- EN Specifications ---
   "EN 10025 S275J0/J2 (t<=16mm)":      { "Sd": 164, "St": 176 },
   "EN 10025 S275J0/J2 (16<t<=40mm)":   { "Sd": 164, "St": 176 },
   "EN 10025 S355J0/J2/K2 (t<=16mm)":      { "Sd": 188, "St": 201 },
