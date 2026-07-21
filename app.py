@@ -11,7 +11,7 @@ import math
 # ============================================================
 
 # Table 5.2a (SI units) — Permissible plate materials and allowable stresses (MPa)
-const materials = {
+materials = {
  # --- ASTM Specifications ---
   "ASTM A283 Grade C":         { "Sd": 137, "St": 154 },
   "ASTM A285 Grade C":         { "Sd": 137, "St": 154 },
@@ -71,7 +71,7 @@ const materials = {
   "EN 10025 S355J0/J2/K2 (t<=16mm)":      { "Sd": 188, "St": 201 },
   "EN 10025 S355J0/J2/K2 (16<t<=40mm)":   { "Sd": 188, "St": 201 },
   "EN 10025 S355J0/J2/K2 (40<t<=50mm)":   { "Sd": 188, "St": 201 },
-};
+}
  
 
 # Typical specific gravity by product (indicative reference values —
