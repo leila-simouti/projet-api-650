@@ -652,7 +652,7 @@ else:
     st.subheader("Bonus — Fabrication")
     st.metric("Total shell weight (kg)", f"{res['poids_total_kg']:.0f}")
 st.subheader("Bonus — Export")
-    col_pdf, col_excel = st.columns(2)
+col_pdf, col_excel = st.columns(2)
 
     with col_pdf:
         pdf_buffer = generer_rapport_pdf(res, material, product)
