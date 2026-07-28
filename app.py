@@ -18,11 +18,11 @@ from reportlab.lib.units import cm
 
 # Table 5.2a (SI units) — Permissible plate materials and allowable stresses (MPa)
 MATERIALS = {
- # --- ASTM Specifications ---
+  # --- ASTM Specifications ---
   "ASTM A283 Grade C":         { "Sd": 137, "St": 154 },
   "ASTM A285 Grade C":         { "Sd": 137, "St": 154 },
   "ASTM A131 Grade A/B":       { "Sd": 157, "St": 171 },
-  "ASTM A36":                   { "Sd": 160, "St": 171 },
+  "ASTM A36":                  { "Sd": 160, "St": 171 },
   "ASTM A131 Grade EH36":      { "Sd": 196, "St": 210 },
   "ASTM A573 Grade 400":       { "Sd": 147, "St": 165 },
   "ASTM A573 Grade 450":       { "Sd": 160, "St": 180 },
@@ -35,9 +35,9 @@ MATERIALS = {
   "ASTM A662 Grade C":         { "Sd": 194, "St": 208 },
  
   # A537M — thickness-dependent (two thickness ranges each)
-  "ASTM A537 Class 1 (t<=65mm)":      { "Sd": 194, "St": 208 },
+  "ASTM A537 Class 1 (t<=65mm)":     { "Sd": 194, "St": 208 },
   "ASTM A537 Class 1 (65<t<=100mm)":  { "Sd": 180, "St": 193 },
-  "ASTM A537 Class 2 (t<=65mm)":      { "Sd": 220, "St": 236 },
+  "ASTM A537 Class 2 (t<=65mm)":     { "Sd": 220, "St": 236 },
   "ASTM A537 Class 2 (65<t<=100mm)":  { "Sd": 206, "St": 221 },
  
   # A633M
@@ -51,11 +51,11 @@ MATERIALS = {
   "ASTM A841 Class 2 (Grade A/B)": { "Sd": 220, "St": 236 },
  
   #--- CSA Specifications ---
-  "CSA G40.21 Grade 260W":            { "Sd": 164, "St": 176 },
-  "CSA G40.21 Grade 260WT":           { "Sd": 164, "St": 176 },
-  "CSA G40.21 Grade 300W":            { "Sd": 176, "St": 189 },
-  "CSA G40.21 Grade 300WT":           { "Sd": 176, "St": 189 },
-  "CSA G40.21 Grade 350W":            { "Sd": 180, "St": 193 },
+  "CSA G40.21 Grade 260W":             { "Sd": 164, "St": 176 },
+  "CSA G40.21 Grade 260WT":            { "Sd": 164, "St": 176 },
+  "CSA G40.21 Grade 300W":             { "Sd": 176, "St": 189 },
+  "CSA G40.21 Grade 300WT":            { "Sd": 176, "St": 189 },
+  "CSA G40.21 Grade 350W":             { "Sd": 180, "St": 193 },
   "CSA G40.21 Grade 350WT (t<=65mm)":     { "Sd": 180, "St": 193 },
   "CSA G40.21 Grade 350WT (65<t<=100mm)": { "Sd": 180, "St": 193 },
  
@@ -83,18 +83,18 @@ MATERIALS = {
 # Typical specific gravity by product (indicative reference values —
 # always confirm with the actual product datasheet before final design)
 PRODUCTS = {
-    "Water":                    1.000,
-    "Sea water":                1.025,
-    "Crude oil":                0.850,
-    "Diesel":                   0.850,
-    "Gasoline":                 0.740,
-    "Kerosene / Jet fuel":      0.800,
-    "Fuel oil (heavy)":         0.950,
-    "Ethanol":                  0.790,
-    "Methanol":                 0.790,
-    "Sulfuric acid (98%)":      1.840,
+    "Water":                      1.000,
+    "Sea water":                  1.025,
+    "Crude oil":                  0.850,
+    "Diesel":                     0.850,
+    "Gasoline":                   0.740,
+    "Kerosene / Jet fuel":        0.800,
+    "Fuel oil (heavy)":           0.950,
+    "Ethanol":                    0.790,
+    "Methanol":                   0.790,
+    "Sulfuric acid (98%)":        1.840,
     "Caustic soda / NaOH (50%)":1.530,
-    "LPG (liquid phase)":       0.510,
+    "LPG (liquid phase)":         0.510,
 }
 
 # ============================================================
@@ -200,7 +200,7 @@ def h_local_liquide(H_liquide, cum_bottom_m):
 
 
 def calculer_reservoir(D, H_shell, H_liquide, h_course_mm, G, CA, Sd, St,
-                        method="AUTO", P=0, V=0, L_plaque_mm=6000):
+                         method="AUTO", P=0, V=0, L_plaque_mm=6000):
     """Full thickness schedule calculation, bottom -> top."""
 
     r = (D * 1000) / 2
@@ -224,11 +224,9 @@ def calculer_reservoir(D, H_shell, H_liquide, h_course_mm, G, CA, Sd, St,
         L = math.sqrt(500 * D * t_estim)
         ratio_LH = L / H_liquide
         validity_msg = (f"VDP applicable (L/H={ratio_LH:.3f})"
-                         if ratio_LH <= 1000 / 6
-                         else f"WARNING: outside VDP domain (L/H={ratio_LH:.3f})")
+                        if ratio_LH <= 1000 / 6
+                        else f"WARNING: outside VDP domain (L/H={ratio_LH:.3f})")
     elif method_used == "ONEFOOT" and D > 61:
-        # Invalid case: One-Foot Method forbidden above 61 m (§5.6.3.1).
-        # We stop here — no course calculation is performed.
         return {
             "D": D, "H_shell": H_shell, "H_liquide": H_liquide,
             "method_used": method_used,
@@ -348,7 +346,7 @@ def dessiner_schema_reservoir(resultat):
     norm = mcolors.Normalize(vmin=tmin_c, vmax=max(tmax_c, tmin_c + 0.1))
     cmap = plt.get_cmap("Blues")
 
-    largeur_dessin = 4.0  # fixed drawing width (representation only, not to diameter scale)
+    largeur_dessin = 4.0
 
     fig, ax = plt.subplots(figsize=(4.5, 7))
 
@@ -359,24 +357,21 @@ def dessiner_schema_reservoir(resultat):
         couleur = cmap(norm(t))
 
         rect = patches.Rectangle((0, y_bas), largeur_dessin, h,
-                                  facecolor=couleur, edgecolor="#333333", linewidth=1.1)
+                                 facecolor=couleur, edgecolor="#333333", linewidth=1.1)
         ax.add_patch(rect)
 
-        # Label: course number + thickness, centered inside the rectangle
         luminosite = 0.299 * couleur[0] + 0.587 * couleur[1] + 0.114 * couleur[2]
         couleur_texte = "white" if luminosite < 0.55 else "black"
         ax.text(largeur_dessin / 2, y_bas + h / 2,
-                 f"C{c['Course']} — {t:.1f} mm",
-                 ha="center", va="center", fontsize=9, color=couleur_texte, weight="bold")
+                f"C{c['Course']} — {t:.1f} mm",
+                ha="center", va="center", fontsize=9, color=couleur_texte, weight="bold")
 
         y_bas += h
 
-    # Design liquid level line
     ax.axhline(H_liquide, color="#1f77b4", linestyle="--", linewidth=1.8)
     ax.text(largeur_dessin + 0.15, H_liquide, f"Liquid level\nH = {H_liquide:.2f} m",
             va="center", fontsize=8.5, color="#1f77b4")
 
-    # Actual top of shell
     if H_shell > H_liquide:
         ax.text(largeur_dessin + 0.15, H_shell, f"Shell top\nH = {H_shell:.2f} m",
                 va="center", fontsize=8.5, color="#555555")
@@ -391,6 +386,8 @@ def dessiner_schema_reservoir(resultat):
     ax.spines["bottom"].set_visible(False)
     fig.tight_layout()
     return fig
+
+
 # ============================================================
 # EXPORT — PDF and Excel calculation report
 # ============================================================
@@ -398,14 +395,13 @@ def generer_rapport_pdf(res, material, product):
     """Builds a PDF calculation report (reportlab) and returns it as bytes."""
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4,
-                             topMargin=1.5 * cm, bottomMargin=1.5 * cm)
+                            topMargin=1.5 * cm, bottomMargin=1.5 * cm)
     styles = getSampleStyleSheet()
     story = []
 
     story.append(Paragraph("API 650 — Shell Design Calculation Report", styles["Title"]))
     story.append(Spacer(1, 12))
 
-    # --- Input summary ---
     story.append(Paragraph("1. Input Parameters", styles["Heading2"]))
     infos = [
         ["Diameter (m)", f"{res['D']:.2f}"],
@@ -424,7 +420,6 @@ def generer_rapport_pdf(res, material, product):
     story.append(t_info)
     story.append(Spacer(1, 16))
 
-    # --- Results table ---
     story.append(Paragraph("2. Results by Course", styles["Heading2"]))
     headers = ["Course", "Height (m)", "Local head (m)", "td (mm)",
                "tt (mm)", "t min (mm)", "Governing t (mm)", "Thickness (mm)", "Nb Plates"]
@@ -446,7 +441,6 @@ def generer_rapport_pdf(res, material, product):
     story.append(t_results)
     story.append(Spacer(1, 16))
 
-    # --- Summary ---
     story.append(Paragraph("3. Fabrication Summary", styles["Heading2"]))
     story.append(Paragraph(f"Total shell weight: <b>{res['poids_total_kg']:.0f} kg</b>", styles["Normal"]))
 
@@ -468,7 +462,6 @@ def generer_rapport_excel(res, material, product):
     """Builds an Excel calculation report (pandas + openpyxl) and returns it as bytes."""
     buffer = BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-        # Sheet 1 — inputs
         infos_df = pd.DataFrame({
             "Parameter": ["Diameter (m)", "Total shell height (m)", "Design liquid level (m)",
                           "Product", "Material", "Method used"],
@@ -477,11 +470,9 @@ def generer_rapport_excel(res, material, product):
         })
         infos_df.to_excel(writer, sheet_name="Inputs", index=False)
 
-        # Sheet 2 — course-by-course results
         df = pd.DataFrame(res["courses"])
         df.to_excel(writer, sheet_name="Results by course", index=False)
 
-        # Sheet 3 — summary
         summary_df = pd.DataFrame({
             "Metric": ["Total shell weight (kg)"],
             "Value": [res["poids_total_kg"]],
@@ -495,6 +486,7 @@ def generer_rapport_excel(res, material, product):
 
     buffer.seek(0)
     return buffer
+
 
 # ============================================================
 # STREAMLIT INTERFACE
@@ -579,7 +571,6 @@ if run_clicked:
 # MAIN AREA
 # ------------------------------------------------------------
 if "resultat" not in st.session_state:
-    # Landing / hero section, shown before any calculation has been run
     st.markdown(
         """
         <div style="
@@ -651,10 +642,12 @@ else:
 
     st.subheader("Bonus — Fabrication")
     st.metric("Total shell weight (kg)", f"{res['poids_total_kg']:.0f}")
-st.subheader("Bonus — Export")
-col_pdf, col_excel = st.columns(2)
 
-with col_pdf:
+    # --- EXPORT SECTION ---
+    st.subheader("Bonus — Export")
+    col_pdf, col_excel = st.columns(2)
+
+    with col_pdf:
         pdf_buffer = generer_rapport_pdf(res, material, product)
         st.download_button(
             label="📄 Download PDF report",
@@ -663,7 +656,7 @@ with col_pdf:
             mime="application/pdf",
             use_container_width=True,
         )
-with col_excel:
+    with col_excel:
         excel_buffer = generer_rapport_excel(res, material, product)
         st.download_button(
             label="📊 Download Excel report",
@@ -672,4 +665,5 @@ with col_excel:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True,
         )
-st.success("Calculation completed successfully!")
+
+    st.success("Calculation completed successfully!")
