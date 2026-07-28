@@ -663,7 +663,7 @@ with col_pdf:
             mime="application/pdf",
             use_container_width=True,
         )
- with col_excel:
+with col_excel:
         excel_buffer = generer_rapport_excel(res, material, product)
         st.download_button(
             label="📊 Download Excel report",
