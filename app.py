@@ -80,8 +80,7 @@ MATERIALS = {
 }
  
 
-# Typical specific gravity by product (indicative reference values —
-# always confirm with the actual product datasheet before final design)
+# Typical specific gravity by product (indicative reference values)
 PRODUCTS = {
     "Water":                      1.000,
     "Sea water":                  1.025,
@@ -175,8 +174,7 @@ def vdp_course2(h1, r, t1, t2a):
 
 
 def heff_pressure(H, P, G):
-    """Bonus 1 — Annex F.2.1 — fixed roof internal pressure
-    H must already be the "liquid" H (never the physical shell H)."""
+    """Bonus 1 — Annex F.2.1 — fixed roof internal pressure"""
     if P >= 1:
         return H + P / (9.8 * G)
     return H
@@ -332,10 +330,6 @@ def calculer_reservoir(D, H_shell, H_liquide, h_course_mm, G, CA, Sd, St,
 # VISUAL DIAGRAM — tank elevation / cross-section
 # ============================================================
 def dessiner_schema_reservoir(resultat):
-    """Draws a vertical cross-section of the tank: each course is a
-    stacked rectangle, colored by its thickness (darker = thicker).
-    The design liquid level is shown with a dashed line."""
-
     courses = resultat["courses"]
     D = resultat["D"]
     H_liquide = resultat["H_liquide"]
@@ -389,10 +383,9 @@ def dessiner_schema_reservoir(resultat):
 
 
 # ============================================================
-# EXPORT — PDF and Excel calculation report
+# EXPORT — PDF calculation report
 # ============================================================
 def generer_rapport_pdf(res, material, product):
-    """Builds a PDF calculation report (reportlab) and returns it as bytes."""
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4,
                             topMargin=1.5 * cm, bottomMargin=1.5 * cm)
@@ -458,36 +451,6 @@ def generer_rapport_pdf(res, material, product):
     return buffer
 
 
-def generer_rapport_excel(res, material, product):
-    """Builds an Excel calculation report (pandas + openpyxl) and returns it as bytes."""
-    buffer = BytesIO()
-    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-        infos_df = pd.DataFrame({
-            "Parameter": ["Diameter (m)", "Total shell height (m)", "Design liquid level (m)",
-                          "Product", "Material", "Method used"],
-            "Value": [res["D"], res["H_shell"], res["H_liquide"],
-                      product, material, res["method_used"]],
-        })
-        infos_df.to_excel(writer, sheet_name="Inputs", index=False)
-
-        df = pd.DataFrame(res["courses"])
-        df.to_excel(writer, sheet_name="Results by course", index=False)
-
-        summary_df = pd.DataFrame({
-            "Metric": ["Total shell weight (kg)"],
-            "Value": [res["poids_total_kg"]],
-        })
-        if res["wind"]:
-            summary_df = pd.concat([summary_df, pd.DataFrame({
-                "Metric": ["Wind H1 (m)", "Wind Transformed H (m)", "Wind girder required"],
-                "Value": [res["wind"]["H1"], res["wind"]["H_transformed"], not res["wind"]["ok"]],
-            })], ignore_index=True)
-        summary_df.to_excel(writer, sheet_name="Summary", index=False)
-
-    buffer.seek(0)
-    return buffer
-
-
 # ============================================================
 # STREAMLIT INTERFACE
 # ============================================================
@@ -510,8 +473,7 @@ H_shell = st.sidebar.number_input(
 )
 H_liquide = st.sidebar.number_input(
     "Design liquid level (m)", value=0.0, step=0.5,
-    help="Maximum fill level, used in ALL stress formulas. "
-         "Can be lower than the shell height (freeboard)."
+    help="Maximum fill level, used in ALL stress formulas."
 )
 
 st.sidebar.markdown("**Stored product**")
@@ -523,7 +485,7 @@ elif product == "Custom / Other":
     G = st.sidebar.number_input("Specific gravity G", value=0.0, step=0.05)
 else:
     G = PRODUCTS[product]
-    st.sidebar.caption(f"Specific gravity G = **{G}** (typical value for {product} — confirm with actual product data)")
+    st.sidebar.caption(f"Specific gravity G = **{G}**")
 
 st.sidebar.markdown("**Shell material**")
 material = st.sidebar.selectbox("ASTM grade (API 650 Table 5.2a)", ["— Select —"] + list(MATERIALS.keys()) + ["Custom / Other"])
@@ -536,7 +498,7 @@ elif material == "Custom / Other":
 else:
     Sd = MATERIALS[material]["Sd"]
     St = MATERIALS[material]["St"]
-    st.sidebar.caption(f"Sd = **{Sd} MPa**, St = **{St} MPa** (API 650 Table 5.2a)")
+    st.sidebar.caption(f"Sd = **{Sd} MPa**, St = **{St} MPa**")
 
 CA = st.sidebar.number_input("Corrosion allowance (mm)", value=0.0, step=0.1)
 h_course_mm = st.sidebar.number_input("Course height (mm)", value=0, step=100)
@@ -558,7 +520,7 @@ run_clicked = st.sidebar.button("Run calculation", type="primary", use_container
 
 if run_clicked:
     if D == 0 or H_shell == 0 or H_liquide == 0 or G == 0 or Sd == 0 or St == 0 or h_course_mm == 0 or L_plaque_mm == 0:
-        st.error("Please fill in all required values (diameter, heights, product, material, course height, plate length) before running the calculation.")
+        st.error("Please fill in all required values before running the calculation.")
         st.stop()
     resultat = calculer_reservoir(
         D=D, H_shell=H_shell, H_liquide=H_liquide, h_course_mm=h_course_mm,
@@ -583,28 +545,12 @@ if "resultat" not in st.session_state:
             <h2 style="margin:0 0 8px 0; color:white;">Tank shell design, done right.</h2>
             <p style="margin:0; font-size: 16px; opacity: 0.92; max-width: 640px;">
                 Enter your tank geometry, product and material in the sidebar to get a
-                full API 650 shell thickness schedule — course by course — along with
-                a visual diagram, wind girder check and estimated shell weight.
+                full API 650 shell thickness schedule — course by course.
             </p>
         </div>
         """,
         unsafe_allow_html=True,
     )
-
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        st.markdown("#### 📐 Shell thickness")
-        st.caption("One-Foot Method and Variable-Design-Point (VDP), course by course.")
-    with c2:
-        st.markdown("#### 🧪 Auto material data")
-        st.caption("Pick a product and an ASTM grade — Sd, St and G are filled in for you.")
-    with c3:
-        st.markdown("#### 💨 Wind girder check")
-        st.caption("Verifies the maximum unstiffened height against wind speed.")
-    with c4:
-        st.markdown("#### ⚖️ Shell weight")
-        st.caption("Estimated total steel weight of the shell from the thickness schedule.")
-
     st.info("👈 Fill in the parameters in the sidebar, then click **Run calculation**.")
 
 else:
@@ -643,27 +589,15 @@ else:
     st.subheader("Bonus — Fabrication")
     st.metric("Total shell weight (kg)", f"{res['poids_total_kg']:.0f}")
 
-    # --- EXPORT SECTION ---
+    # --- EXPORT SECTION (PDF only) ---
     st.subheader("Bonus — Export")
-    col_pdf, col_excel = st.columns(2)
-
-    with col_pdf:
-        pdf_buffer = generer_rapport_pdf(res, material, product)
-        st.download_button(
-            label="📄 Download PDF report",
-            data=pdf_buffer,
-            file_name="api650_calculation_report.pdf",
-            mime="application/pdf",
-            use_container_width=True,
-        )
-    with col_excel:
-        excel_buffer = generer_rapport_excel(res, material, product)
-        st.download_button(
-            label="📊 Download Excel report",
-            data=excel_buffer,
-            file_name="api650_calculation_report.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True,
-        )
+    pdf_buffer = generer_rapport_pdf(res, material, product)
+    st.download_button(
+        label="📄 Download PDF report",
+        data=pdf_buffer,
+        file_name="api650_calculation_report.pdf",
+        mime="application/pdf",
+        use_container_width=True,
+    )
 
     st.success("Calculation completed successfully!")
