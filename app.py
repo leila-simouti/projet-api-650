@@ -5,6 +5,12 @@ import matplotlib.patches as patches
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
 import math
+from io import BytesIO
+from reportlab.lib.pagesizes import A4
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib import colors
+from reportlab.lib.units import cm
 
 # ============================================================
 # API 650 — REFERENCE TABLES
@@ -385,7 +391,110 @@ def dessiner_schema_reservoir(resultat):
     ax.spines["bottom"].set_visible(False)
     fig.tight_layout()
     return fig
+# ============================================================
+# EXPORT — PDF and Excel calculation report
+# ============================================================
+def generer_rapport_pdf(res, material, product):
+    """Builds a PDF calculation report (reportlab) and returns it as bytes."""
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4,
+                             topMargin=1.5 * cm, bottomMargin=1.5 * cm)
+    styles = getSampleStyleSheet()
+    story = []
 
+    story.append(Paragraph("API 650 — Shell Design Calculation Report", styles["Title"]))
+    story.append(Spacer(1, 12))
+
+    # --- Input summary ---
+    story.append(Paragraph("1. Input Parameters", styles["Heading2"]))
+    infos = [
+        ["Diameter (m)", f"{res['D']:.2f}"],
+        ["Total shell height (m)", f"{res['H_shell']:.2f}"],
+        ["Design liquid level (m)", f"{res['H_liquide']:.2f}"],
+        ["Product", product],
+        ["Material", material],
+        ["Method used", res["method_used"]],
+    ]
+    t_info = Table(infos, colWidths=[7 * cm, 7 * cm])
+    t_info.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("BACKGROUND", (0, 0), (0, -1), colors.whitesmoke),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+    ]))
+    story.append(t_info)
+    story.append(Spacer(1, 16))
+
+    # --- Results table ---
+    story.append(Paragraph("2. Results by Course", styles["Heading2"]))
+    headers = ["Course", "Height (m)", "Local head (m)", "td (mm)",
+               "tt (mm)", "t min (mm)", "Governing t (mm)", "Thickness (mm)", "Nb Plates"]
+    data = [headers]
+    for c in res["courses"]:
+        data.append([
+            c["Course"], c["Height (m)"], c["Local liquid head (m)"],
+            c["td (mm)"], c["tt (mm)"], c["t min (mm)"],
+            c["Governing t (mm)"], c["Thickness (mm)"], c["Nb Plates"],
+        ])
+    t_results = Table(data, repeatRows=1)
+    t_results.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#8a6d1a")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTSIZE", (0, 0), (-1, -1), 7.5),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+    ]))
+    story.append(t_results)
+    story.append(Spacer(1, 16))
+
+    # --- Summary ---
+    story.append(Paragraph("3. Fabrication Summary", styles["Heading2"]))
+    story.append(Paragraph(f"Total shell weight: <b>{res['poids_total_kg']:.0f} kg</b>", styles["Normal"]))
+
+    if res["wind"]:
+        story.append(Spacer(1, 10))
+        story.append(Paragraph("4. Wind Girder Check", styles["Heading2"]))
+        story.append(Paragraph(
+            f"H1 = {res['wind']['H1']} m, Transformed H = {res['wind']['H_transformed']} m, "
+            f"Status: {'OK' if res['wind']['ok'] else 'Girder Required'}",
+            styles["Normal"]
+        ))
+
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
+
+
+def generer_rapport_excel(res, material, product):
+    """Builds an Excel calculation report (pandas + openpyxl) and returns it as bytes."""
+    buffer = BytesIO()
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        # Sheet 1 — inputs
+        infos_df = pd.DataFrame({
+            "Parameter": ["Diameter (m)", "Total shell height (m)", "Design liquid level (m)",
+                          "Product", "Material", "Method used"],
+            "Value": [res["D"], res["H_shell"], res["H_liquide"],
+                      product, material, res["method_used"]],
+        })
+        infos_df.to_excel(writer, sheet_name="Inputs", index=False)
+
+        # Sheet 2 — course-by-course results
+        df = pd.DataFrame(res["courses"])
+        df.to_excel(writer, sheet_name="Results by course", index=False)
+
+        # Sheet 3 — summary
+        summary_df = pd.DataFrame({
+            "Metric": ["Total shell weight (kg)"],
+            "Value": [res["poids_total_kg"]],
+        })
+        if res["wind"]:
+            summary_df = pd.concat([summary_df, pd.DataFrame({
+                "Metric": ["Wind H1 (m)", "Wind Transformed H (m)", "Wind girder required"],
+                "Value": [res["wind"]["H1"], res["wind"]["H_transformed"], not res["wind"]["ok"]],
+            })], ignore_index=True)
+        summary_df.to_excel(writer, sheet_name="Summary", index=False)
+
+    buffer.seek(0)
+    return buffer
 
 # ============================================================
 # STREAMLIT INTERFACE
@@ -542,5 +651,27 @@ else:
 
     st.subheader("Bonus — Fabrication")
     st.metric("Total shell weight (kg)", f"{res['poids_total_kg']:.0f}")
+st.subheader("Bonus — Export")
+    col_pdf, col_excel = st.columns(2)
+
+    with col_pdf:
+        pdf_buffer = generer_rapport_pdf(res, material, product)
+        st.download_button(
+            label="📄 Download PDF report",
+            data=pdf_buffer,
+            file_name="api650_calculation_report.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+        )
+
+    with col_excel:
+        excel_buffer = generer_rapport_excel(res, material, product)
+        st.download_button(
+            label="📊 Download Excel report",
+            data=excel_buffer,
+            file_name="api650_calculation_report.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+        )
 
     st.success("Calculation completed successfully!")
