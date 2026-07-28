@@ -654,7 +654,7 @@ else:
 st.subheader("Bonus — Export")
 col_pdf, col_excel = st.columns(2)
 
-    with col_pdf:
+with col_pdf:
         pdf_buffer = generer_rapport_pdf(res, material, product)
         st.download_button(
             label="📄 Download PDF report",
