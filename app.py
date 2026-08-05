@@ -285,7 +285,7 @@ def calculer_reservoir(D, H_shell, H_liquide, h_course_mm, G, CA, Sd, St,
 # ============================================================
 # PDF GENERATION FUNCTION
 # ============================================================
-def generer_pdf(res):
+def generer_pdf(res, input_params):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
     elements = []
@@ -296,14 +296,39 @@ def generer_pdf(res):
         parent=styles['Heading1'],
         fontSize=18,
         textColor=colors.HexColor('#1f77b4'),
-        spaceAfter=12
+        spaceAfter=10
     )
     
     elements.append(Paragraph("API 650 Tank Design Report", title_style))
-    elements.append(Paragraph(f"<b>Diameter:</b> {res['D']} m | <b>Shell Height:</b> {res['H_shell']} m | <b>Method:</b> {res['method_used']}", styles['Normal']))
-    elements.append(Spacer(1, 12))
+    elements.append(Spacer(1, 5))
     
-    # Table data
+    # 1. Caractéristiques d'entrée
+    elements.append(Paragraph("<b>1. Tank Characteristics & Parameters</b>", styles['Heading2']))
+    info_data = [
+        ["Parameter", "Value", "Parameter", "Value"],
+        ["Diameter (D)", f"{input_params['D']} m", "Corrosion Allowance (CA)", f"{input_params['CA']} mm"],
+        ["Shell Height", f"{input_params['H_shell']} m", "Course Height", f"{input_params['h_course_mm']} mm"],
+        ["Liquid Level", f"{input_params['H_liquide']} m", "Method", f"{res['method_used']}"],
+        ["Product", f"{input_params['product']} (G={input_params['G']})", "Material", f"{input_params['material']}"],
+        ["Design Stress (Sd)", f"{input_params['Sd']} MPa", "Test Stress (St)", f"{input_params['St']} MPa"],
+        ["Internal Pressure (P)", f"{input_params['P']} kPa", "Wind Speed (V)", f"{input_params['V']} km/h"]
+    ]
+    t_info = Table(info_data, hAlign='LEFT', colWidths=[130, 110, 140, 110])
+    t_info.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#333333')),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+        ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('BOTTOMPADDING', (0,0), (-1,0), 4),
+        ('BACKGROUND', (0,1), (-1,-1), colors.HexColor('#f2f2f2')),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+        ('FONTSIZE', (0,0), (-1,-1), 8.5),
+    ]))
+    elements.append(t_info)
+    elements.append(Spacer(1, 10))
+    
+    # 2. Résultats par course
+    elements.append(Paragraph("<b>2. Calculation Results by Course</b>", styles['Heading2']))
     data = [["Course", "Height (m)", "Liquid Head (m)", "Gov. t (mm)", "Thick. (mm)", "Plates"]]
     for c in res['courses']:
         data.append([
@@ -314,22 +339,44 @@ def generer_pdf(res):
             str(c['Thickness (mm)']),
             str(c['Nb Plates'])
         ])
-        
     t = Table(data, hAlign='LEFT')
     t.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1f77b4')),
         ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
         ('ALIGN', (0,0), (-1,-1), 'CENTER'),
         ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('BOTTOMPADDING', (0,0), (-1,0), 6),
+        ('BOTTOMPADDING', (0,0), (-1,0), 5),
         ('BACKGROUND', (0,1), (-1,-1), colors.HexColor('#f9f9f9')),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.grey)
+        ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+        ('FONTSIZE', (0,0), (-1,-1), 9),
     ]))
-    
     elements.append(t)
-    elements.append(Spacer(1, 15))
+    elements.append(Spacer(1, 8))
     elements.append(Paragraph(f"<b>Total Shell Weight:</b> {res['poids_total_kg']} kg", styles['Normal']))
     
+    # 3. Wind Girder si activé
+    if res.get('wind'):
+        elements.append(Spacer(1, 10))
+        elements.append(Paragraph("<b>3. Wind Girder Check (API 650)</b>", styles['Heading2']))
+        wind_data = [
+            ["Parameter", "Value"],
+            ["H1 (Maximum allowed height)", f"{res['wind']['H1']} m"],
+            ["Transformed Height (H_transformed)", f"{res['wind']['H_transformed']} m"],
+            ["Status", "OK (No intermediate girder required)" if res['wind']['ok'] else "Required (Intermediate girder needed)"]
+        ]
+        t_wind = Table(wind_data, hAlign='LEFT')
+        t_wind.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#2ca02c') if res['wind']['ok'] else colors.HexColor('#d62728')),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+            ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('BOTTOMPADDING', (0,0), (-1,0), 5),
+            ('BACKGROUND', (0,1), (-1,-1), colors.HexColor('#f9f9f9')),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+            ('FONTSIZE', (0,0), (-1,-1), 8.5),
+        ]))
+        elements.append(t_wind)
+
     doc.build(elements)
     buffer.seek(0)
     return buffer
@@ -450,6 +497,10 @@ V = st.sidebar.number_input("Wind speed (km/h)", value=0.0, step=5.0) if use_win
 L_plaque_mm = st.sidebar.number_input("Standard plate length (mm)", value=0, step=100)
 
 st.sidebar.markdown("---")
+st.sidebar.subheader("PDF Report Customization")
+nom_personnalise = st.sidebar.text_input("PDF File name", value="API_650_Tank_Report")
+
+st.sidebar.markdown("---")
 run_clicked = st.sidebar.button("Run calculation", type="primary", use_container_width=True)
 
 if run_clicked:
@@ -519,12 +570,20 @@ else:
     st.subheader("Bonus — Fabrication")
     st.metric("Total shell weight (kg)", f"{res['poids_total_kg']:.0f}")
 
-    # Ajout du bouton de téléchargement du PDF
-    pdf_buffer = generer_pdf(res)
+    # Génération du rapport PDF avec paramètres d'entrée et nom personnalisé
+    input_params = {
+        "D": D, "H_shell": H_shell, "H_liquide": H_liquide, "CA": CA,
+        "h_course_mm": h_course_mm, "product": product, "G": G,
+        "material": material, "Sd": Sd, "St": St, "P": P, "V": V
+    }
+
+    pdf_buffer = generer_pdf(res, input_params)
+    nom_fichier_pdf = f"{nom_personnalise.strip()}.pdf"
+
     st.download_button(
         label="📥 Download calculation report (PDF)",
         data=pdf_buffer,
-        file_name="API_650_Tank_Report.pdf",
+        file_name=nom_fichier_pdf,
         mime="application/pdf",
         type="primary"
     )
