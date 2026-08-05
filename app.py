@@ -12,87 +12,85 @@ import math
 
 # Table 5.2a (SI units) — Permissible plate materials and allowable stresses (MPa)
 MATERIALS = {
- # --- ASTM Specifications ---
-  "ASTM A283 Grade C":         { "Sd": 137, "St": 154 },
-  "ASTM A285 Grade C":         { "Sd": 137, "St": 154 },
-  "ASTM A131 Grade A/B":       { "Sd": 157, "St": 171 },
-  "ASTM A36":                   { "Sd": 160, "St": 171 },
-  "ASTM A131 Grade EH36":      { "Sd": 196, "St": 210 },
-  "ASTM A573 Grade 400":       { "Sd": 147, "St": 165 },
-  "ASTM A573 Grade 450":       { "Sd": 160, "St": 180 },
-  "ASTM A573 Grade 485":       { "Sd": 193, "St": 208 },
-  "ASTM A516 Grade 380":       { "Sd": 137, "St": 154 },
-  "ASTM A516 Grade 415":       { "Sd": 147, "St": 165 },
-  "ASTM A516 Grade 450":       { "Sd": 160, "St": 180 },
-  "ASTM A516 Grade 485":       { "Sd": 173, "St": 195 },
-  "ASTM A662 Grade B":         { "Sd": 180, "St": 193 },
-  "ASTM A662 Grade C":         { "Sd": 194, "St": 208 },
- 
-  # A537M — thickness-dependent (two thickness ranges each)
-  "ASTM A537 Class 1 (t<=65mm)":      { "Sd": 194, "St": 208 },
-  "ASTM A537 Class 1 (65<t<=100mm)":  { "Sd": 180, "St": 193 },
-  "ASTM A537 Class 2 (t<=65mm)":      { "Sd": 220, "St": 236 },
-  "ASTM A537 Class 2 (65<t<=100mm)":  { "Sd": 206, "St": 221 },
- 
-  # A633M
-  "ASTM A633 Grade C/D (t<=65mm)":     { "Sd": 194, "St": 208 },
-  "ASTM A633 Grade C/D (65<t<=100mm)": { "Sd": 180, "St": 193 },
- 
-  "ASTM A737 Grade B":         { "Sd": 194, "St": 208 },
- 
-  # A841M
-  "ASTM A841 Class 1 (Grade A/B)": { "Sd": 194, "St": 208 },
-  "ASTM A841 Class 2 (Grade A/B)": { "Sd": 220, "St": 236 },
- 
-  #--- CSA Specifications ---
-  "CSA G40.21 Grade 260W":            { "Sd": 164, "St": 176 },
-  "CSA G40.21 Grade 260WT":           { "Sd": 164, "St": 176 },
-  "CSA G40.21 Grade 300W":            { "Sd": 176, "St": 189 },
-  "CSA G40.21 Grade 300WT":           { "Sd": 176, "St": 189 },
-  "CSA G40.21 Grade 350W":            { "Sd": 180, "St": 193 },
-  "CSA G40.21 Grade 350WT (t<=65mm)":     { "Sd": 180, "St": 193 },
-  "CSA G40.21 Grade 350WT (65<t<=100mm)": { "Sd": 180, "St": 193 },
- 
-  # --- National Standards (generic grades, no spec name given in table) ---
-  "National Standard Grade 235":  { "Sd": 137, "St": 154 },
-  "National Standard Grade 250":  { "Sd": 157, "St": 171 },
-  "National Standard Grade 275":  { "Sd": 167, "St": 184 },
- 
-  # --- ISO Specifications ---
-  "ISO 630 S275C/D (t<=16mm)":        { "Sd": 164, "St": 176 },
-  "ISO 630 S275C/D (16<t<=40mm)":     { "Sd": 164, "St": 176 },
-  "ISO 630 S355C/D (t<=16mm)":        { "Sd": 188, "St": 201 },
-  "ISO 630 S355C/D (16<t<=40mm)":     { "Sd": 188, "St": 201 },
-  "ISO 630 S355C/D (40<t<=50mm)":     { "Sd": 188, "St": 201 },
- 
-  # --- EN Specifications ---
-  "EN 10025 S275J0/J2 (t<=16mm)":      { "Sd": 164, "St": 176 },
-  "EN 10025 S275J0/J2 (16<t<=40mm)":   { "Sd": 164, "St": 176 },
-  "EN 10025 S355J0/J2/K2 (t<=16mm)":      { "Sd": 188, "St": 201 },
-  "EN 10025 S355J0/J2/K2 (16<t<=40mm)":   { "Sd": 188, "St": 201 },
-  "EN 10025 S355J0/J2/K2 (40<t<=50mm)":   { "Sd": 188, "St": 201 },
+    # --- ASTM Specifications ---
+    "ASTM A283 Grade C":          { "Sd": 137, "St": 154 },
+    "ASTM A285 Grade C":          { "Sd": 137, "St": 154 },
+    "ASTM A131 Grade A/B":        { "Sd": 157, "St": 171 },
+    "ASTM A36":                   { "Sd": 160, "St": 171 },
+    "ASTM A131 Grade EH36":       { "Sd": 196, "St": 210 },
+    "ASTM A573 Grade 400":        { "Sd": 147, "St": 165 },
+    "ASTM A573 Grade 450":        { "Sd": 160, "St": 180 },
+    "ASTM A573 Grade 485":        { "Sd": 193, "St": 208 },
+    "ASTM A516 Grade 380":        { "Sd": 137, "St": 154 },
+    "ASTM A516 Grade 415":        { "Sd": 147, "St": 165 },
+    "ASTM A516 Grade 450":        { "Sd": 160, "St": 180 },
+    "ASTM A516 Grade 485":        { "Sd": 173, "St": 195 },
+    "ASTM A662 Grade B":          { "Sd": 180, "St": 193 },
+    "ASTM A662 Grade C":          { "Sd": 194, "St": 208 },
+    
+    # A537M — thickness-dependent (two thickness ranges each)
+    "ASTM A537 Class 1 (t<=65mm)":      { "Sd": 194, "St": 208 },
+    "ASTM A537 Class 1 (65<t<=100mm)":  { "Sd": 180, "St": 193 },
+    "ASTM A537 Class 2 (t<=65mm)":      { "Sd": 220, "St": 236 },
+    "ASTM A537 Class 2 (65<t<=100mm)":  { "Sd": 206, "St": 221 },
+    
+    # A633M
+    "ASTM A633 Grade C/D (t<=65mm)":     { "Sd": 194, "St": 208 },
+    "ASTM A633 Grade C/D (65<t<=100mm)": { "Sd": 180, "St": 193 },
+    
+    "ASTM A737 Grade B":          { "Sd": 194, "St": 208 },
+    
+    # A841M
+    "ASTM A841 Class 1 (Grade A/B)": { "Sd": 194, "St": 208 },
+    "ASTM A841 Class 2 (Grade A/B)": { "Sd": 220, "St": 236 },
+    
+    # --- CSA Specifications ---
+    "CSA G40.21 Grade 260W":            { "Sd": 164, "St": 176 },
+    "CSA G40.21 Grade 260WT":           { "Sd": 164, "St": 176 },
+    "CSA G40.21 Grade 300W":            { "Sd": 176, "St": 189 },
+    "CSA G40.21 Grade 300WT":           { "Sd": 176, "St": 189 },
+    "CSA G40.21 Grade 350W":            { "Sd": 180, "St": 193 },
+    "CSA G40.21 Grade 350WT (t<=65mm)":      { "Sd": 180, "St": 193 },
+    "CSA G40.21 Grade 350WT (65<t<=100mm)": { "Sd": 180, "St": 193 },
+    
+    # --- National Standards (generic grades, no spec name given in table) ---
+    "National Standard Grade 235":  { "Sd": 137, "St": 154 },
+    "National Standard Grade 250":  { "Sd": 157, "St": 171 },
+    "National Standard Grade 275":  { "Sd": 167, "St": 184 },
+    
+    # --- ISO Specifications ---
+    "ISO 630 S275C/D (t<=16mm)":        { "Sd": 164, "St": 176 },
+    "ISO 630 S275C/D (16<t<=40mm)":     { "Sd": 164, "St": 176 },
+    "ISO 630 S355C/D (t<=16mm)":        { "Sd": 188, "St": 201 },
+    "ISO 630 S355C/D (16<t<=40mm)":     { "Sd": 188, "St": 201 },
+    "ISO 630 S355C/D (40<t<=50mm)":     { "Sd": 188, "St": 201 },
+    
+    # --- EN Specifications ---
+    "EN 10025 S275J0/J2 (t<=16mm)":      { "Sd": 164, "St": 176 },
+    "EN 10025 S275J0/J2 (16<t<=40mm)":   { "Sd": 164, "St": 176 },
+    "EN 10025 S355J0/J2/K2 (t<=16mm)":     { "Sd": 188, "St": 201 },
+    "EN 10025 S355J0/J2/K2 (16<t<=40mm)":   { "Sd": 188, "St": 201 },
+    "EN 10025 S355J0/J2/K2 (40<t<=50mm)":   { "Sd": 188, "St": 201 },
 }
- 
 
-# Typical specific gravity by product (indicative reference values —
-# always confirm with the actual product datasheet before final design)
+# Typical specific gravity by product
 PRODUCTS = {
-    "Water":                    1.000,
-    "Sea water":                1.025,
-    "Crude oil":                0.850,
-    "Diesel":                   0.850,
-    "Gasoline":                 0.740,
-    "Kerosene / Jet fuel":      0.800,
-    "Fuel oil (heavy)":         0.950,
-    "Ethanol":                  0.790,
-    "Methanol":                 0.790,
-    "Sulfuric acid (98%)":      1.840,
-    "Caustic soda / NaOH (50%)":1.530,
-    "LPG (liquid phase)":       0.510,
+    "Water":                      1.000,
+    "Sea water":                  1.025,
+    "Crude oil":                  0.850,
+    "Diesel":                     0.850,
+    "Gasoline":                   0.740,
+    "Kerosene / Jet fuel":        0.800,
+    "Fuel oil (heavy)":           0.950,
+    "Ethanol":                    0.790,
+    "Methanol":                   0.790,
+    "Sulfuric acid (98%)":        1.840,
+    "Caustic soda / NaOH (50%)":  1.530,
+    "LPG (liquid phase)":         0.510,
 }
 
 # ============================================================
-# API 650 — CALCULATION FUNCTIONS (validated against Annex K)
+# API 650 — CALCULATION FUNCTIONS
 # ============================================================
 
 def table_min(D):
@@ -106,21 +104,17 @@ def table_min(D):
     else:
         return 10
 
-
 def round_commercial(t, step=0.5):
     """Round up to the nearest commercial thickness, 0.5 mm step"""
     return math.ceil(t / step) * step
-
 
 def one_foot_td(D, H, G, Sd, CA):
     """§5.6.3.2 — design thickness"""
     return (4.9 * D * (H - 0.3) * G) / Sd + CA
 
-
 def one_foot_tt(D, H, St):
     """§5.6.3.2 — hydrostatic test thickness"""
     return (4.9 * D * (H - 0.3)) / St
-
 
 def vdp_course1(D, H, G, S, CA, is_design):
     """§5.6.4.4 — bottom course, VDP method (capped by tp)"""
@@ -133,7 +127,6 @@ def vdp_course1(D, H, G, S, CA, is_design):
         factor = 1.06 - (0.0696 * D / H) * math.sqrt(H / S)
         t1 = factor * (4.9 * H * D / S)
     return min(t1, tp)
-
 
 def vdp_upper_course(tL, tu_init, D, H_local, r, S, G, CA, is_design, max_iter=8, tol=0.02):
     """§5.6.4.6-8 — critical point x, convergence loop"""
@@ -155,7 +148,6 @@ def vdp_upper_course(tL, tu_init, D, H_local, r, S, G, CA, is_design, max_iter=8
         tu = tx
     return tu
 
-
 def vdp_course2(h1, r, t1, t2a):
     """§5.6.4.5 — ratio + interpolation for the 2nd course"""
     ratio = h1 / math.sqrt(r * t1)
@@ -167,36 +159,28 @@ def vdp_course2(h1, r, t1, t2a):
         t2 = t2a + (t1 - t2a) * (2.1 - h1 / (1.25 * math.sqrt(r * t1)))
     return t2
 
-
 def heff_pressure(H, P, G):
-    """Bonus 1 — Annex F.2.1 — fixed roof internal pressure
-    H must already be the "liquid" H (never the physical shell H)."""
+    """Annex F.2.1 — fixed roof internal pressure"""
     if P >= 1:
         return H + P / (9.8 * G)
     return H
 
-
 def wind_girder_h1(D, t, V):
-    """Bonus 2 — §5.9.6.1 — maximum unstiffened height"""
+    """§5.9.6.1 — maximum unstiffened height"""
     Pwv = 1.48 * (V / 190) ** 2
     Pwd = Pwv + 0.24
     return 9.47 * t * math.sqrt((t / D) ** 3 * (1.72 / Pwd))
 
-
 def nombre_plaques(D, L_plaque_mm=6000):
-    """Bonus 4 — number of plates per course"""
+    """Number of plates per course"""
     return math.ceil((math.pi * D * 1000) / L_plaque_mm)
-
 
 def h_local_liquide(H_liquide, cum_bottom_m):
     """Distance between the bottom of the course and the design liquid level."""
     return H_liquide - cum_bottom_m
 
-
 def calculer_reservoir(D, H_shell, H_liquide, h_course_mm, G, CA, Sd, St,
-                        method="AUTO", P=0, V=0, L_plaque_mm=6000):
-    """Full thickness schedule calculation, bottom -> top."""
-
+                       method="AUTO", P=0, V=0, L_plaque_mm=6000):
     r = (D * 1000) / 2
 
     freeboard_msg = ""
@@ -218,16 +202,14 @@ def calculer_reservoir(D, H_shell, H_liquide, h_course_mm, G, CA, Sd, St,
         L = math.sqrt(500 * D * t_estim)
         ratio_LH = L / H_liquide
         validity_msg = (f"VDP applicable (L/H={ratio_LH:.3f})"
-                         if ratio_LH <= 1000 / 6
-                         else f"WARNING: outside VDP domain (L/H={ratio_LH:.3f})")
+                       if ratio_LH <= 1000 / 6
+                       else f"WARNING: outside VDP domain (L/H={ratio_LH:.3f})")
     elif method_used == "ONEFOOT" and D > 61:
-        # Invalid case: One-Foot Method forbidden above 61 m (§5.6.3.1).
-        # We stop here — no course calculation is performed.
         return {
             "D": D, "H_shell": H_shell, "H_liquide": H_liquide,
             "method_used": method_used,
             "valid": False,
-            "validity_msg": "ERROR: One-Foot Method is not allowed for D > 61 m (§5.6.3.1 API 650). Please select the VDP or AUTO method.",
+            "validity_msg": "ERROR: One-Foot Method is not allowed for D > 61 m (§5.6.3.1 API 650).",
             "freeboard_msg": freeboard_msg,
             "courses": [],
             "wind": None,
@@ -323,15 +305,10 @@ def calculer_reservoir(D, H_shell, H_liquide, h_course_mm, G, CA, Sd, St,
         "poids_total_kg": round(poids_total, 0),
     }
 
-
 # ============================================================
-# VISUAL DIAGRAM — tank elevation / cross-section
+# VISUAL DIAGRAM
 # ============================================================
 def dessiner_schema_reservoir(resultat):
-    """Draws a vertical cross-section of the tank: each course is a
-    stacked rectangle, colored by its thickness (darker = thicker).
-    The design liquid level is shown with a dashed line."""
-
     courses = resultat["courses"]
     D = resultat["D"]
     H_liquide = resultat["H_liquide"]
@@ -342,7 +319,7 @@ def dessiner_schema_reservoir(resultat):
     norm = mcolors.Normalize(vmin=tmin_c, vmax=max(tmax_c, tmin_c + 0.1))
     cmap = plt.get_cmap("Blues")
 
-    largeur_dessin = 4.0  # fixed drawing width (representation only, not to diameter scale)
+    largeur_dessin = 4.0
 
     fig, ax = plt.subplots(figsize=(4.5, 7))
 
@@ -353,24 +330,21 @@ def dessiner_schema_reservoir(resultat):
         couleur = cmap(norm(t))
 
         rect = patches.Rectangle((0, y_bas), largeur_dessin, h,
-                                  facecolor=couleur, edgecolor="#333333", linewidth=1.1)
+                                 facecolor=couleur, edgecolor="#333333", linewidth=1.1)
         ax.add_patch(rect)
 
-        # Label: course number + thickness, centered inside the rectangle
         luminosite = 0.299 * couleur[0] + 0.587 * couleur[1] + 0.114 * couleur[2]
         couleur_texte = "white" if luminosite < 0.55 else "black"
         ax.text(largeur_dessin / 2, y_bas + h / 2,
-                 f"C{c['Course']} — {t:.1f} mm",
-                 ha="center", va="center", fontsize=9, color=couleur_texte, weight="bold")
+                f"C{c['Course']} — {t:.1f} mm",
+                ha="center", va="center", fontsize=9, color=couleur_texte, weight="bold")
 
         y_bas += h
 
-    # Design liquid level line
     ax.axhline(H_liquide, color="#1f77b4", linestyle="--", linewidth=1.8)
     ax.text(largeur_dessin + 0.15, H_liquide, f"Liquid level\nH = {H_liquide:.2f} m",
             va="center", fontsize=8.5, color="#1f77b4")
 
-    # Actual top of shell
     if H_shell > H_liquide:
         ax.text(largeur_dessin + 0.15, H_shell, f"Shell top\nH = {H_shell:.2f} m",
                 va="center", fontsize=8.5, color="#555555")
@@ -386,7 +360,6 @@ def dessiner_schema_reservoir(resultat):
     fig.tight_layout()
     return fig
 
-
 # ============================================================
 # STREAMLIT INTERFACE
 # ============================================================
@@ -395,9 +368,6 @@ st.set_page_config(page_title="API 650 Calculator", page_icon="🏗️", layout=
 st.title("🏗️ API 650 Calculator")
 st.caption("Your tool for calculation and design of a storage reservoir")
 
-# ------------------------------------------------------------
-# SIDEBAR — Parameters
-# ------------------------------------------------------------
 st.sidebar.header("Parameters")
 
 D = st.sidebar.number_input("Diameter (m)", value=0.0, step=0.5)
@@ -409,8 +379,7 @@ H_shell = st.sidebar.number_input(
 )
 H_liquide = st.sidebar.number_input(
     "Design liquid level (m)", value=0.0, step=0.5,
-    help="Maximum fill level, used in ALL stress formulas. "
-         "Can be lower than the shell height (freeboard)."
+    help="Maximum fill level, used in ALL stress formulas."
 )
 
 st.sidebar.markdown("**Stored product**")
@@ -422,7 +391,7 @@ elif product == "Custom / Other":
     G = st.sidebar.number_input("Specific gravity G", value=0.0, step=0.05)
 else:
     G = PRODUCTS[product]
-    st.sidebar.caption(f"Specific gravity G = **{G}** (typical value for {product} — confirm with actual product data)")
+    st.sidebar.caption(f"Specific gravity G = **{G}**")
 
 st.sidebar.markdown("**Shell material**")
 material = st.sidebar.selectbox("ASTM grade (API 650 Table 5.2a)", ["— Select —"] + list(MATERIALS.keys()) + ["Custom / Other"])
@@ -435,7 +404,7 @@ elif material == "Custom / Other":
 else:
     Sd = MATERIALS[material]["Sd"]
     St = MATERIALS[material]["St"]
-    st.sidebar.caption(f"Sd = **{Sd} MPa**, St = **{St} MPa** (API 650 Table 5.2a)")
+    st.sidebar.caption(f"Sd = **{Sd} MPa**, St = **{St} MPa**")
 
 CA = st.sidebar.number_input("Corrosion allowance (mm)", value=0.0, step=0.1)
 h_course_mm = st.sidebar.number_input("Course height (mm)", value=0, step=100)
@@ -457,7 +426,7 @@ run_clicked = st.sidebar.button("Run calculation", type="primary", use_container
 
 if run_clicked:
     if D == 0 or H_shell == 0 or H_liquide == 0 or G == 0 or Sd == 0 or St == 0 or h_course_mm == 0 or L_plaque_mm == 0:
-        st.error("Please fill in all required values (diameter, heights, product, material, course height, plate length) before running the calculation.")
+        st.error("Please fill in all required values before running the calculation.")
         st.stop()
     resultat = calculer_reservoir(
         D=D, H_shell=H_shell, H_liquide=H_liquide, h_course_mm=h_course_mm,
@@ -466,11 +435,7 @@ if run_clicked:
     )
     st.session_state["resultat"] = resultat
 
-# ------------------------------------------------------------
-# MAIN AREA
-# ------------------------------------------------------------
 if "resultat" not in st.session_state:
-    # Landing / hero section, shown before any calculation has been run
     st.markdown(
         """
         <div style="
@@ -483,30 +448,13 @@ if "resultat" not in st.session_state:
             <h2 style="margin:0 0 8px 0; color:white;">Tank shell design, done right.</h2>
             <p style="margin:0; font-size: 16px; opacity: 0.92; max-width: 640px;">
                 Enter your tank geometry, product and material in the sidebar to get a
-                full API 650 shell thickness schedule — course by course — along with
-                a visual diagram, wind girder check and estimated shell weight.
+                full API 650 shell thickness schedule.
             </p>
         </div>
         """,
         unsafe_allow_html=True,
     )
-
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        st.markdown("#### 📐 Shell thickness")
-        st.caption("One-Foot Method and Variable-Design-Point (VDP), course by course.")
-    with c2:
-        st.markdown("#### 🧪 Auto material data")
-        st.caption("Pick a product and an ASTM grade — Sd, St and G are filled in for you.")
-    with c3:
-        st.markdown("#### 💨 Wind girder check")
-        st.caption("Verifies the maximum unstiffened height against wind speed.")
-    with c4:
-        st.markdown("#### ⚖️ Shell weight")
-        st.caption("Estimated total steel weight of the shell from the thickness schedule.")
-
     st.info("👈 Fill in the parameters in the sidebar, then click **Run calculation**.")
-
 else:
     res = st.session_state["resultat"]
 
