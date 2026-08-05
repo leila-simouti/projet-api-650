@@ -5,14 +5,18 @@ import matplotlib.patches as patches
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
 import math
+import io
+
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
 
 # ============================================================
 # API 650 — REFERENCE TABLES
 # ============================================================
 
-# Table 5.2a (SI units) — Permissible plate materials and allowable stresses (MPa)
 MATERIALS = {
-    # --- ASTM Specifications ---
     "ASTM A283 Grade C":          { "Sd": 137, "St": 154 },
     "ASTM A285 Grade C":          { "Sd": 137, "St": 154 },
     "ASTM A131 Grade A/B":        { "Sd": 157, "St": 171 },
@@ -27,24 +31,15 @@ MATERIALS = {
     "ASTM A516 Grade 485":        { "Sd": 173, "St": 195 },
     "ASTM A662 Grade B":          { "Sd": 180, "St": 193 },
     "ASTM A662 Grade C":          { "Sd": 194, "St": 208 },
-    
-    # A537M — thickness-dependent (two thickness ranges each)
     "ASTM A537 Class 1 (t<=65mm)":      { "Sd": 194, "St": 208 },
     "ASTM A537 Class 1 (65<t<=100mm)":  { "Sd": 180, "St": 193 },
     "ASTM A537 Class 2 (t<=65mm)":      { "Sd": 220, "St": 236 },
     "ASTM A537 Class 2 (65<t<=100mm)":  { "Sd": 206, "St": 221 },
-    
-    # A633M
     "ASTM A633 Grade C/D (t<=65mm)":     { "Sd": 194, "St": 208 },
     "ASTM A633 Grade C/D (65<t<=100mm)": { "Sd": 180, "St": 193 },
-    
     "ASTM A737 Grade B":          { "Sd": 194, "St": 208 },
-    
-    # A841M
     "ASTM A841 Class 1 (Grade A/B)": { "Sd": 194, "St": 208 },
     "ASTM A841 Class 2 (Grade A/B)": { "Sd": 220, "St": 236 },
-    
-    # --- CSA Specifications ---
     "CSA G40.21 Grade 260W":            { "Sd": 164, "St": 176 },
     "CSA G40.21 Grade 260WT":           { "Sd": 164, "St": 176 },
     "CSA G40.21 Grade 300W":            { "Sd": 176, "St": 189 },
@@ -52,20 +47,14 @@ MATERIALS = {
     "CSA G40.21 Grade 350W":            { "Sd": 180, "St": 193 },
     "CSA G40.21 Grade 350WT (t<=65mm)":      { "Sd": 180, "St": 193 },
     "CSA G40.21 Grade 350WT (65<t<=100mm)": { "Sd": 180, "St": 193 },
-    
-    # --- National Standards (generic grades, no spec name given in table) ---
     "National Standard Grade 235":  { "Sd": 137, "St": 154 },
     "National Standard Grade 250":  { "Sd": 157, "St": 171 },
     "National Standard Grade 275":  { "Sd": 167, "St": 184 },
-    
-    # --- ISO Specifications ---
     "ISO 630 S275C/D (t<=16mm)":        { "Sd": 164, "St": 176 },
     "ISO 630 S275C/D (16<t<=40mm)":     { "Sd": 164, "St": 176 },
     "ISO 630 S355C/D (t<=16mm)":        { "Sd": 188, "St": 201 },
     "ISO 630 S355C/D (16<t<=40mm)":     { "Sd": 188, "St": 201 },
     "ISO 630 S355C/D (40<t<=50mm)":     { "Sd": 188, "St": 201 },
-    
-    # --- EN Specifications ---
     "EN 10025 S275J0/J2 (t<=16mm)":      { "Sd": 164, "St": 176 },
     "EN 10025 S275J0/J2 (16<t<=40mm)":   { "Sd": 164, "St": 176 },
     "EN 10025 S355J0/J2/K2 (t<=16mm)":     { "Sd": 188, "St": 201 },
@@ -73,7 +62,6 @@ MATERIALS = {
     "EN 10025 S355J0/J2/K2 (40<t<=50mm)":   { "Sd": 188, "St": 201 },
 }
 
-# Typical specific gravity by product
 PRODUCTS = {
     "Water":                      1.000,
     "Sea water":                  1.025,
@@ -94,7 +82,6 @@ PRODUCTS = {
 # ============================================================
 
 def table_min(D):
-    """Table 5.1a — minimum thickness (mm) based on diameter (m)"""
     if D < 15:
         return 5
     elif D < 36:
@@ -105,19 +92,15 @@ def table_min(D):
         return 10
 
 def round_commercial(t, step=0.5):
-    """Round up to the nearest commercial thickness, 0.5 mm step"""
     return math.ceil(t / step) * step
 
 def one_foot_td(D, H, G, Sd, CA):
-    """§5.6.3.2 — design thickness"""
     return (4.9 * D * (H - 0.3) * G) / Sd + CA
 
 def one_foot_tt(D, H, St):
-    """§5.6.3.2 — hydrostatic test thickness"""
     return (4.9 * D * (H - 0.3)) / St
 
 def vdp_course1(D, H, G, S, CA, is_design):
-    """§5.6.4.4 — bottom course, VDP method (capped by tp)"""
     if is_design:
         tp = (4.9 * D * (H - 0.3) * G) / S + CA
         factor = 1.06 - (0.0696 * D / H) * math.sqrt((H * G) / S)
@@ -129,7 +112,6 @@ def vdp_course1(D, H, G, S, CA, is_design):
     return min(t1, tp)
 
 def vdp_upper_course(tL, tu_init, D, H_local, r, S, G, CA, is_design, max_iter=8, tol=0.02):
-    """§5.6.4.6-8 — critical point x, convergence loop"""
     tu = tu_init
     for _ in range(max_iter):
         K = tL / tu
@@ -149,7 +131,6 @@ def vdp_upper_course(tL, tu_init, D, H_local, r, S, G, CA, is_design, max_iter=8
     return tu
 
 def vdp_course2(h1, r, t1, t2a):
-    """§5.6.4.5 — ratio + interpolation for the 2nd course"""
     ratio = h1 / math.sqrt(r * t1)
     if ratio <= 1.375:
         t2 = t1
@@ -160,23 +141,19 @@ def vdp_course2(h1, r, t1, t2a):
     return t2
 
 def heff_pressure(H, P, G):
-    """Annex F.2.1 — fixed roof internal pressure"""
     if P >= 1:
         return H + P / (9.8 * G)
     return H
 
 def wind_girder_h1(D, t, V):
-    """§5.9.6.1 — maximum unstiffened height"""
     Pwv = 1.48 * (V / 190) ** 2
     Pwd = Pwv + 0.24
     return 9.47 * t * math.sqrt((t / D) ** 3 * (1.72 / Pwd))
 
 def nombre_plaques(D, L_plaque_mm=6000):
-    """Number of plates per course"""
     return math.ceil((math.pi * D * 1000) / L_plaque_mm)
 
 def h_local_liquide(H_liquide, cum_bottom_m):
-    """Distance between the bottom of the course and the design liquid level."""
     return H_liquide - cum_bottom_m
 
 def calculer_reservoir(D, H_shell, H_liquide, h_course_mm, G, CA, Sd, St,
@@ -306,6 +283,58 @@ def calculer_reservoir(D, H_shell, H_liquide, h_course_mm, G, CA, Sd, St,
     }
 
 # ============================================================
+# PDF GENERATION FUNCTION
+# ============================================================
+def generer_pdf(res):
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+    elements = []
+    
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'TitleStyle',
+        parent=styles['Heading1'],
+        fontSize=18,
+        textColor=colors.HexColor('#1f77b4'),
+        spaceAfter=12
+    )
+    
+    elements.append(Paragraph("API 650 Tank Design Report", title_style))
+    elements.append(Paragraph(f"<b>Diameter:</b> {res['D']} m | <b>Shell Height:</b> {res['H_shell']} m | <b>Method:</b> {res['method_used']}", styles['Normal']))
+    elements.append(Spacer(1, 12))
+    
+    # Table data
+    data = [["Course", "Height (m)", "Liquid Head (m)", "Gov. t (mm)", "Thick. (mm)", "Plates"]]
+    for c in res['courses']:
+        data.append([
+            str(c['Course']),
+            str(c['Height (m)']),
+            str(c['Local liquid head (m)']),
+            str(c['Governing t (mm)']),
+            str(c['Thickness (mm)']),
+            str(c['Nb Plates'])
+        ])
+        
+    t = Table(data, hAlign='LEFT')
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1f77b4')),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('BOTTOMPADDING', (0,0), (-1,0), 6),
+        ('BACKGROUND', (0,1), (-1,-1), colors.HexColor('#f9f9f9')),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.grey)
+    ]))
+    
+    elements.append(t)
+    elements.append(Spacer(1, 15))
+    elements.append(Paragraph(f"<b>Total Shell Weight:</b> {res['poids_total_kg']} kg", styles['Normal']))
+    
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
+
+# ============================================================
 # VISUAL DIAGRAM
 # ============================================================
 def dessiner_schema_reservoir(resultat):
@@ -320,7 +349,6 @@ def dessiner_schema_reservoir(resultat):
     cmap = plt.get_cmap("Blues")
 
     largeur_dessin = 4.0
-
     fig, ax = plt.subplots(figsize=(4.5, 7))
 
     y_bas = 0.0
@@ -490,5 +518,15 @@ else:
 
     st.subheader("Bonus — Fabrication")
     st.metric("Total shell weight (kg)", f"{res['poids_total_kg']:.0f}")
+
+    # Ajout du bouton de téléchargement du PDF
+    pdf_buffer = generer_pdf(res)
+    st.download_button(
+        label="📥 Download calculation report (PDF)",
+        data=pdf_buffer,
+        file_name="API_650_Tank_Report.pdf",
+        mime="application/pdf",
+        type="primary"
+    )
 
     st.success("Calculation completed successfully!")
