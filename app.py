@@ -5,18 +5,20 @@ import matplotlib.patches as patches
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
 import math
-import io
-
-from reportlab.lib.pagesizes import letter
+from io import BytesIO
+from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
+from reportlab.lib.units import cm as rl_cm
 
 # ============================================================
 # API 650 — REFERENCE TABLES
 # ============================================================
 
+# Table 5.2a (SI units) — Permissible plate materials and allowable stresses (MPa)
 MATERIALS = {
+    # --- ASTM Specifications ---
     "ASTM A283 Grade C":          { "Sd": 137, "St": 154 },
     "ASTM A285 Grade C":          { "Sd": 137, "St": 154 },
     "ASTM A131 Grade A/B":        { "Sd": 157, "St": 171 },
@@ -31,15 +33,24 @@ MATERIALS = {
     "ASTM A516 Grade 485":        { "Sd": 173, "St": 195 },
     "ASTM A662 Grade B":          { "Sd": 180, "St": 193 },
     "ASTM A662 Grade C":          { "Sd": 194, "St": 208 },
+
+    # A537M — thickness-dependent (two thickness ranges each)
     "ASTM A537 Class 1 (t<=65mm)":      { "Sd": 194, "St": 208 },
     "ASTM A537 Class 1 (65<t<=100mm)":  { "Sd": 180, "St": 193 },
     "ASTM A537 Class 2 (t<=65mm)":      { "Sd": 220, "St": 236 },
     "ASTM A537 Class 2 (65<t<=100mm)":  { "Sd": 206, "St": 221 },
+
+    # A633M
     "ASTM A633 Grade C/D (t<=65mm)":     { "Sd": 194, "St": 208 },
     "ASTM A633 Grade C/D (65<t<=100mm)": { "Sd": 180, "St": 193 },
+
     "ASTM A737 Grade B":          { "Sd": 194, "St": 208 },
+
+    # A841M
     "ASTM A841 Class 1 (Grade A/B)": { "Sd": 194, "St": 208 },
     "ASTM A841 Class 2 (Grade A/B)": { "Sd": 220, "St": 236 },
+
+    # --- CSA Specifications ---
     "CSA G40.21 Grade 260W":            { "Sd": 164, "St": 176 },
     "CSA G40.21 Grade 260WT":           { "Sd": 164, "St": 176 },
     "CSA G40.21 Grade 300W":            { "Sd": 176, "St": 189 },
@@ -47,14 +58,20 @@ MATERIALS = {
     "CSA G40.21 Grade 350W":            { "Sd": 180, "St": 193 },
     "CSA G40.21 Grade 350WT (t<=65mm)":      { "Sd": 180, "St": 193 },
     "CSA G40.21 Grade 350WT (65<t<=100mm)": { "Sd": 180, "St": 193 },
+
+    # --- National Standards (generic grades, no spec name given in table) ---
     "National Standard Grade 235":  { "Sd": 137, "St": 154 },
     "National Standard Grade 250":  { "Sd": 157, "St": 171 },
     "National Standard Grade 275":  { "Sd": 167, "St": 184 },
+
+    # --- ISO Specifications ---
     "ISO 630 S275C/D (t<=16mm)":        { "Sd": 164, "St": 176 },
     "ISO 630 S275C/D (16<t<=40mm)":     { "Sd": 164, "St": 176 },
     "ISO 630 S355C/D (t<=16mm)":        { "Sd": 188, "St": 201 },
     "ISO 630 S355C/D (16<t<=40mm)":     { "Sd": 188, "St": 201 },
     "ISO 630 S355C/D (40<t<=50mm)":     { "Sd": 188, "St": 201 },
+
+    # --- EN Specifications ---
     "EN 10025 S275J0/J2 (t<=16mm)":      { "Sd": 164, "St": 176 },
     "EN 10025 S275J0/J2 (16<t<=40mm)":   { "Sd": 164, "St": 176 },
     "EN 10025 S355J0/J2/K2 (t<=16mm)":     { "Sd": 188, "St": 201 },
@@ -62,6 +79,7 @@ MATERIALS = {
     "EN 10025 S355J0/J2/K2 (40<t<=50mm)":   { "Sd": 188, "St": 201 },
 }
 
+# Typical specific gravity by product
 PRODUCTS = {
     "Water":                      1.000,
     "Sea water":                  1.025,
@@ -82,6 +100,7 @@ PRODUCTS = {
 # ============================================================
 
 def table_min(D):
+    """Table 5.1a — minimum thickness (mm) based on diameter (m)"""
     if D < 15:
         return 5
     elif D < 36:
@@ -92,15 +111,19 @@ def table_min(D):
         return 10
 
 def round_commercial(t, step=0.5):
+    """Round up to the nearest commercial thickness, 0.5 mm step"""
     return math.ceil(t / step) * step
 
 def one_foot_td(D, H, G, Sd, CA):
+    """§5.6.3.2 — design thickness"""
     return (4.9 * D * (H - 0.3) * G) / Sd + CA
 
 def one_foot_tt(D, H, St):
+    """§5.6.3.2 — hydrostatic test thickness"""
     return (4.9 * D * (H - 0.3)) / St
 
 def vdp_course1(D, H, G, S, CA, is_design):
+    """§5.6.4.4 — bottom course, VDP method (capped by tp)"""
     if is_design:
         tp = (4.9 * D * (H - 0.3) * G) / S + CA
         factor = 1.06 - (0.0696 * D / H) * math.sqrt((H * G) / S)
@@ -112,6 +135,7 @@ def vdp_course1(D, H, G, S, CA, is_design):
     return min(t1, tp)
 
 def vdp_upper_course(tL, tu_init, D, H_local, r, S, G, CA, is_design, max_iter=8, tol=0.02):
+    """§5.6.4.6-8 — critical point x, convergence loop"""
     tu = tu_init
     for _ in range(max_iter):
         K = tL / tu
@@ -131,6 +155,7 @@ def vdp_upper_course(tL, tu_init, D, H_local, r, S, G, CA, is_design, max_iter=8
     return tu
 
 def vdp_course2(h1, r, t1, t2a):
+    """§5.6.4.5 — ratio + interpolation for the 2nd course"""
     ratio = h1 / math.sqrt(r * t1)
     if ratio <= 1.375:
         t2 = t1
@@ -141,23 +166,107 @@ def vdp_course2(h1, r, t1, t2a):
     return t2
 
 def heff_pressure(H, P, G):
+    """Annex F.2.1 — fixed roof internal pressure"""
     if P >= 1:
         return H + P / (9.8 * G)
     return H
 
-def wind_girder_h1(D, t, V):
-    Pwv = 1.48 * (V / 190) ** 2
-    Pwd = Pwv + 0.24
-    return 9.47 * t * math.sqrt((t / D) ** 3 * (1.72 / Pwd))
-
 def nombre_plaques(D, L_plaque_mm=6000):
+    """Number of plates per course"""
     return math.ceil((math.pi * D * 1000) / L_plaque_mm)
 
 def h_local_liquide(H_liquide, cum_bottom_m):
+    """Distance between the bottom of the course and the design liquid level."""
     return H_liquide - cum_bottom_m
 
+# ============================================================
+# API 650 — WIND GIRDER MODULE (§5.9.5 / §5.9.6)
+# ============================================================
+
+def wind_pressure(V):
+    """§5.9.6.1 NOTE 2 — design wind pressure from design wind speed V (km/h)
+    Pwv = 1.48*(V/190)^2 [kPa] ; Pwd = Pwv + 0.24 [kPa]"""
+    Pwv = 1.48 * (V / 190) ** 2
+    Pwd = Pwv + 0.24
+    return Pwv, Pwd
+
+def h1_max_unstiffened(D, t, V):
+    """§5.9.6.1 — Maximum height of unstiffened shell (m)
+    H1 = 9.47*t*sqrt((t/D)^3 * (1.72/Pwd))   [t in mm, D in m]"""
+    _, Pwd = wind_pressure(V)
+    return 9.47 * t * math.sqrt((t / D) ** 3 * (1.72 / Pwd))
+
+def transformed_shell_height(courses, t_uniform):
+    """§5.9.6.2 — Transformed shell height (m)
+    Wtr = W * (t_uniform / t_actual)^2.5   (sqrt of the 5th power)
+    Returns total transformed height (m) + detail per course."""
+    detail = []
+    H_tr = 0.0
+    for c in courses:
+        W = c["Height (m)"] * 1000          # mm
+        t_actual = c["Thickness (mm)"]
+        Wtr = W * (t_uniform / t_actual) ** 2.5
+        H_tr += Wtr
+        detail.append({
+            "Course": c["Course"],
+            "W (mm)": round(W, 1),
+            "t (mm)": t_actual,
+            "Wtr (mm)": round(Wtr, 1),
+        })
+    return H_tr / 1000, detail            # back to m
+
+def z_top_wind_girder(D, H2, Fy, V):
+    """§5.9.5.3 — Required minimum section modulus of TOP wind girder (cm3)
+    Z = 6*H2*D^2 * (Pwd/1.72) / (0.5*Fy)
+    D capped at 61 m ; Fy capped at 210 MPa."""
+    D_calc = min(D, 61)
+    Fy_calc = min(Fy, 210)
+    _, Pwd = wind_pressure(V)
+    return 6 * H2 * D_calc ** 2 * (Pwd / 1.72) / (0.5 * Fy_calc)
+
+def z_intermediate_wind_girder(D, h1, Fy, V):
+    """§5.9.6.6 — Required minimum section modulus of INTERMEDIATE wind girder (cm3)
+    Z = 6*h1*D^2 * (Pwd/1.72) / (0.5*Fy)
+    Fy capped at 210 MPa. h1 = distance (m) between girder and top of shell."""
+    Fy_calc = min(Fy, 210)
+    _, Pwd = wind_pressure(V)
+    return 6 * h1 * D ** 2 * (Pwd / 1.72) / (0.5 * Fy_calc)
+
+def check_wind_girder(D, H_shell, courses, V, Fy=235):
+    """Full §5.9.6 check: is an intermediate wind girder required, and if so
+    how many, plus the required section moduli (top + intermediate)."""
+    t_uniform = min(c["Thickness (mm)"] for c in courses)   # thinnest course
+    H1 = h1_max_unstiffened(D, t_uniform, V)
+    H_transformed, detail = transformed_shell_height(courses, t_uniform)
+
+    if H_transformed <= H1:
+        n_girders_required = 0
+    elif H_transformed / 2 <= H1:
+        n_girders_required = 1          # §5.9.6.3
+    else:
+        n_girders_required = 2          # §5.9.6.4 (half of transformed > H1)
+
+    Z_top = z_top_wind_girder(D, H_shell, Fy, V)
+    # h1 for intermediate girder: worst case, mid-height of transformed shell (§5.9.6.3.1)
+    h1_mid = H_transformed / 2 if n_girders_required else None
+    Z_intermediate = z_intermediate_wind_girder(D, h1_mid, Fy, V) if h1_mid else None
+
+    return {
+        "t_uniform_mm": t_uniform,
+        "H1_m": round(H1, 3),
+        "H_transformed_m": round(H_transformed, 3),
+        "detail_per_course": detail,
+        "n_intermediate_girders_required": n_girders_required,
+        "Z_top_cm3": round(Z_top, 1),
+        "Z_intermediate_cm3": round(Z_intermediate, 1) if Z_intermediate else None,
+    }
+
+# ============================================================
+# MAIN CALCULATION
+# ============================================================
+
 def calculer_reservoir(D, H_shell, H_liquide, h_course_mm, G, CA, Sd, St,
-                       method="AUTO", P=0, V=0, L_plaque_mm=6000):
+                       method="AUTO", P=0, V=0, L_plaque_mm=6000, Fy=235):
     r = (D * 1000) / 2
 
     freeboard_msg = ""
@@ -258,12 +367,10 @@ def calculer_reservoir(D, H_shell, H_liquide, h_course_mm, G, CA, Sd, St,
             "Nb Plates": nombre_plaques(D, L_plaque_mm),
         })
 
+    # --- Wind girder check (§5.9.5 / §5.9.6) ---
     wind_result = None
     if V > 0:
-        t_ref = min(c["Thickness (mm)"] for c in courses)
-        H1 = wind_girder_h1(D, t_ref, V)
-        H_transf = sum(c["Height (m)"] * 1000 * (t_ref / c["Thickness (mm)"]) ** 2.5 for c in courses) / 1000
-        wind_result = {"H1": round(H1, 2), "H_transformed": round(H_transf, 2), "ok": H_transf <= H1}
+        wind_result = check_wind_girder(D, H_shell, courses, V, Fy=Fy)
 
     density = 7850
     poids_total = sum(
@@ -283,105 +390,6 @@ def calculer_reservoir(D, H_shell, H_liquide, h_course_mm, G, CA, Sd, St,
     }
 
 # ============================================================
-# PDF GENERATION FUNCTION
-# ============================================================
-def generer_pdf(res, input_params):
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
-    elements = []
-    
-    styles = getSampleStyleSheet()
-    title_style = ParagraphStyle(
-        'TitleStyle',
-        parent=styles['Heading1'],
-        fontSize=18,
-        textColor=colors.HexColor('#1f77b4'),
-        spaceAfter=10
-    )
-    
-    elements.append(Paragraph("API 650 Tank Design Report", title_style))
-    elements.append(Spacer(1, 5))
-    
-    # 1. Caractéristiques d'entrée
-    elements.append(Paragraph("<b>1. Tank Characteristics & Parameters</b>", styles['Heading2']))
-    info_data = [
-        ["Parameter", "Value", "Parameter", "Value"],
-        ["Diameter (D)", f"{input_params['D']} m", "Corrosion Allowance (CA)", f"{input_params['CA']} mm"],
-        ["Shell Height", f"{input_params['H_shell']} m", "Course Height", f"{input_params['h_course_mm']} mm"],
-        ["Liquid Level", f"{input_params['H_liquide']} m", "Method", f"{res['method_used']}"],
-        ["Product", f"{input_params['product']} (G={input_params['G']})", "Material", f"{input_params['material']}"],
-        ["Design Stress (Sd)", f"{input_params['Sd']} MPa", "Test Stress (St)", f"{input_params['St']} MPa"],
-        ["Internal Pressure (P)", f"{input_params['P']} kPa", "Wind Speed (V)", f"{input_params['V']} km/h"]
-    ]
-    t_info = Table(info_data, hAlign='LEFT', colWidths=[130, 110, 140, 110])
-    t_info.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#333333')),
-        ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
-        ('ALIGN', (0,0), (-1,-1), 'LEFT'),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('BOTTOMPADDING', (0,0), (-1,0), 4),
-        ('BACKGROUND', (0,1), (-1,-1), colors.HexColor('#f2f2f2')),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
-        ('FONTSIZE', (0,0), (-1,-1), 8.5),
-    ]))
-    elements.append(t_info)
-    elements.append(Spacer(1, 10))
-    
-    # 2. Résultats par course
-    elements.append(Paragraph("<b>2. Calculation Results by Course</b>", styles['Heading2']))
-    data = [["Course", "Height (m)", "Liquid Head (m)", "Gov. t (mm)", "Thick. (mm)", "Plates"]]
-    for c in res['courses']:
-        data.append([
-            str(c['Course']),
-            str(c['Height (m)']),
-            str(c['Local liquid head (m)']),
-            str(c['Governing t (mm)']),
-            str(c['Thickness (mm)']),
-            str(c['Nb Plates'])
-        ])
-    t = Table(data, hAlign='LEFT')
-    t.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1f77b4')),
-        ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
-        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('BOTTOMPADDING', (0,0), (-1,0), 5),
-        ('BACKGROUND', (0,1), (-1,-1), colors.HexColor('#f9f9f9')),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
-        ('FONTSIZE', (0,0), (-1,-1), 9),
-    ]))
-    elements.append(t)
-    elements.append(Spacer(1, 8))
-    elements.append(Paragraph(f"<b>Total Shell Weight:</b> {res['poids_total_kg']} kg", styles['Normal']))
-    
-    # 3. Wind Girder si activé
-    if res.get('wind'):
-        elements.append(Spacer(1, 10))
-        elements.append(Paragraph("<b>3. Wind Girder Check (API 650)</b>", styles['Heading2']))
-        wind_data = [
-            ["Parameter", "Value"],
-            ["H1 (Maximum allowed height)", f"{res['wind']['H1']} m"],
-            ["Transformed Height (H_transformed)", f"{res['wind']['H_transformed']} m"],
-            ["Status", "OK (No intermediate girder required)" if res['wind']['ok'] else "Required (Intermediate girder needed)"]
-        ]
-        t_wind = Table(wind_data, hAlign='LEFT')
-        t_wind.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#2ca02c') if res['wind']['ok'] else colors.HexColor('#d62728')),
-            ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
-            ('ALIGN', (0,0), (-1,-1), 'LEFT'),
-            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-            ('BOTTOMPADDING', (0,0), (-1,0), 5),
-            ('BACKGROUND', (0,1), (-1,-1), colors.HexColor('#f9f9f9')),
-            ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
-            ('FONTSIZE', (0,0), (-1,-1), 8.5),
-        ]))
-        elements.append(t_wind)
-
-    doc.build(elements)
-    buffer.seek(0)
-    return buffer
-
-# ============================================================
 # VISUAL DIAGRAM
 # ============================================================
 def dessiner_schema_reservoir(resultat):
@@ -396,6 +404,7 @@ def dessiner_schema_reservoir(resultat):
     cmap = plt.get_cmap("Blues")
 
     largeur_dessin = 4.0
+
     fig, ax = plt.subplots(figsize=(4.5, 7))
 
     y_bas = 0.0
@@ -434,6 +443,139 @@ def dessiner_schema_reservoir(resultat):
     ax.spines["bottom"].set_visible(False)
     fig.tight_layout()
     return fig
+
+# ============================================================
+# EXPORT — PDF and Excel calculation report
+# ============================================================
+
+def generer_rapport_pdf(res, material, product, titre_personnalise="API 650 — Shell Design Calculation Report"):
+    """Builds a PDF calculation report (reportlab) and returns it as bytes.
+    Includes the wind girder section with Z_top / Z_intermediate (§5.9.5/§5.9.6)."""
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4,
+                             topMargin=1.5 * rl_cm, bottomMargin=1.5 * rl_cm)
+    styles = getSampleStyleSheet()
+    story = []
+
+    story.append(Paragraph(titre_personnalise, styles["Title"]))
+    story.append(Spacer(1, 12))
+
+    # --- Input summary ---
+    story.append(Paragraph("1. Input Parameters", styles["Heading2"]))
+    infos = [
+        ["Diameter (m)", f"{res['D']:.2f}"],
+        ["Total shell height (m)", f"{res['H_shell']:.2f}"],
+        ["Design liquid level (m)", f"{res['H_liquide']:.2f}"],
+        ["Product", product],
+        ["Material", material],
+        ["Method used", res["method_used"]],
+    ]
+    t_info = Table(infos, colWidths=[7 * rl_cm, 7 * rl_cm])
+    t_info.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("BACKGROUND", (0, 0), (0, -1), colors.whitesmoke),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+    ]))
+    story.append(t_info)
+    story.append(Spacer(1, 16))
+
+    # --- Results table ---
+    story.append(Paragraph("2. Results by Course", styles["Heading2"]))
+    headers = ["Course", "Height (m)", "Local head (m)", "td (mm)",
+               "tt (mm)", "t min (mm)", "Governing t (mm)", "Thickness (mm)", "Nb Plates"]
+    data = [headers]
+    for c in res["courses"]:
+        data.append([
+            c["Course"], c["Height (m)"], c["Local liquid head (m)"],
+            c["td (mm)"], c["tt (mm)"], c["t min (mm)"],
+            c["Governing t (mm)"], c["Thickness (mm)"], c["Nb Plates"],
+        ])
+    t_results = Table(data, repeatRows=1)
+    t_results.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#8a6d1a")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTSIZE", (0, 0), (-1, -1), 7.5),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+    ]))
+    story.append(t_results)
+    story.append(Spacer(1, 16))
+
+    # --- Fabrication summary ---
+    story.append(Paragraph("3. Fabrication Summary", styles["Heading2"]))
+    story.append(Paragraph(f"Total shell weight: <b>{res['poids_total_kg']:.0f} kg</b>", styles["Normal"]))
+
+    # --- Wind girder section (§5.9.5 / §5.9.6) ---
+    if res["wind"]:
+        w = res["wind"]
+        story.append(Spacer(1, 16))
+        story.append(Paragraph("4. Wind Girder Check (§5.9.5 / §5.9.6)", styles["Heading2"]))
+
+        wind_infos = [
+            ["Thinnest course thickness t_uniform (mm)", f"{w['t_uniform_mm']}"],
+            ["H1 — max unstiffened height (m)", f"{w['H1_m']}"],
+            ["Transformed shell height (m)", f"{w['H_transformed_m']}"],
+            ["Intermediate girders required", f"{w['n_intermediate_girders_required']}"],
+            ["Z top wind girder required (cm³)", f"{w['Z_top_cm3']}"],
+            ["Z intermediate wind girder required (cm³)",
+             f"{w['Z_intermediate_cm3']}" if w["Z_intermediate_cm3"] else "N/A"],
+        ]
+        t_wind = Table(wind_infos, colWidths=[9 * rl_cm, 5 * rl_cm])
+        t_wind.setStyle(TableStyle([
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+            ("BACKGROUND", (0, 0), (0, -1), colors.whitesmoke),
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ]))
+        story.append(t_wind)
+
+        verdict = ("No intermediate wind girder required."
+                   if w["n_intermediate_girders_required"] == 0
+                   else f"{w['n_intermediate_girders_required']} intermediate wind girder(s) required.")
+        story.append(Spacer(1, 8))
+        story.append(Paragraph(f"<b>Verdict:</b> {verdict} A top wind girder "
+                                f"(Z ≥ {w['Z_top_cm3']} cm³) is mandatory regardless.", styles["Normal"]))
+
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
+
+
+def generer_rapport_excel(res, material, product):
+    """Builds an Excel calculation report (pandas + openpyxl) and returns it as bytes."""
+    buffer = BytesIO()
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        # Sheet 1 — inputs
+        infos_df = pd.DataFrame({
+            "Parameter": ["Diameter (m)", "Total shell height (m)", "Design liquid level (m)",
+                          "Product", "Material", "Method used"],
+            "Value": [res["D"], res["H_shell"], res["H_liquide"],
+                      product, material, res["method_used"]],
+        })
+        infos_df.to_excel(writer, sheet_name="Inputs", index=False)
+
+        # Sheet 2 — course-by-course results
+        df = pd.DataFrame(res["courses"])
+        df.to_excel(writer, sheet_name="Results by course", index=False)
+
+        # Sheet 3 — summary + wind girder
+        summary_df = pd.DataFrame({
+            "Metric": ["Total shell weight (kg)"],
+            "Value": [res["poids_total_kg"]],
+        })
+        if res["wind"]:
+            w = res["wind"]
+            summary_df = pd.concat([summary_df, pd.DataFrame({
+                "Metric": ["Wind H1 (m)", "Wind Transformed H (m)",
+                           "Intermediate girders required",
+                           "Z top wind girder (cm3)", "Z intermediate wind girder (cm3)"],
+                "Value": [w["H1_m"], w["H_transformed_m"],
+                          w["n_intermediate_girders_required"],
+                          w["Z_top_cm3"], w["Z_intermediate_cm3"] or "N/A"],
+            })], ignore_index=True)
+        summary_df.to_excel(writer, sheet_name="Summary", index=False)
+
+    buffer.seek(0)
+    return buffer
 
 # ============================================================
 # STREAMLIT INTERFACE
@@ -492,13 +634,17 @@ use_pressure = st.sidebar.checkbox("Fixed roof — internal pressure")
 P = st.sidebar.number_input("Pressure P (kPa)", value=0.0, step=0.5) if use_pressure else 0
 
 use_wind = st.sidebar.checkbox("Check wind girder", value=False)
-V = st.sidebar.number_input("Wind speed (km/h)", value=0.0, step=5.0) if use_wind else 0
+if use_wind:
+    V = st.sidebar.number_input("Wind speed (km/h)", value=0.0, step=5.0)
+    Fy = st.sidebar.number_input(
+        "Yield strength Fy (MPa)", value=235.0, step=5.0,
+        help="Capped at 210 MPa in the §5.9.5.3 / §5.9.6.6 formulas regardless of the value entered."
+    )
+else:
+    V = 0
+    Fy = 235.0
 
 L_plaque_mm = st.sidebar.number_input("Standard plate length (mm)", value=0, step=100)
-
-st.sidebar.markdown("---")
-st.sidebar.subheader("PDF Report Customization")
-nom_personnalise = st.sidebar.text_input("PDF File name", value="API_650_Tank_Report")
 
 st.sidebar.markdown("---")
 run_clicked = st.sidebar.button("Run calculation", type="primary", use_container_width=True)
@@ -510,7 +656,7 @@ if run_clicked:
     resultat = calculer_reservoir(
         D=D, H_shell=H_shell, H_liquide=H_liquide, h_course_mm=h_course_mm,
         G=G, CA=CA, Sd=Sd, St=St,
-        method=method, P=P, V=V, L_plaque_mm=L_plaque_mm
+        method=method, P=P, V=V, L_plaque_mm=L_plaque_mm, Fy=Fy
     )
     st.session_state["resultat"] = resultat
 
@@ -561,31 +707,53 @@ else:
         st.pyplot(fig)
 
     if res["wind"]:
-        st.subheader("Bonus — Wind girder")
+        w = res["wind"]
+        st.subheader("Bonus — Wind girder (§5.9.5 / §5.9.6)")
+
         c1, c2, c3 = st.columns(3)
-        c1.metric("H1 (m)", res["wind"]["H1"])
-        c2.metric("Transformed H (m)", res["wind"]["H_transformed"])
-        c3.metric("Status", "✅ OK" if res["wind"]["ok"] else "⚠️ Required")
+        c1.metric("H1 — max unstiffened height (m)", w["H1_m"])
+        c2.metric("Transformed shell height (m)", w["H_transformed_m"])
+        c3.metric(
+            "Intermediate girders required",
+            w["n_intermediate_girders_required"],
+        )
+        if w["H_transformed_m"] <= w["H1_m"]:
+            st.success("✅ No intermediate wind girder required (transformed height ≤ H1).")
+        else:
+            st.warning(f"⚠️ Intermediate wind girder(s) required: {w['n_intermediate_girders_required']}")
+
+        c4, c5 = st.columns(2)
+        c4.metric("Z top wind girder required (cm³)", w["Z_top_cm3"])
+        if w["Z_intermediate_cm3"]:
+            c5.metric("Z intermediate wind girder required (cm³)", w["Z_intermediate_cm3"])
+
+        with st.expander("Transposed width detail per course (§5.9.6.2)"):
+            st.dataframe(pd.DataFrame(w["detail_per_course"]), use_container_width=True)
 
     st.subheader("Bonus — Fabrication")
     st.metric("Total shell weight (kg)", f"{res['poids_total_kg']:.0f}")
 
-    # Génération du rapport PDF avec paramètres d'entrée et nom personnalisé
-    input_params = {
-        "D": D, "H_shell": H_shell, "H_liquide": H_liquide, "CA": CA,
-        "h_course_mm": h_course_mm, "product": product, "G": G,
-        "material": material, "Sd": Sd, "St": St, "P": P, "V": V
-    }
+    st.subheader("Bonus — Export")
+    col_pdf, col_excel = st.columns(2)
 
-    pdf_buffer = generer_pdf(res, input_params)
-    nom_fichier_pdf = f"{nom_personnalise.strip()}.pdf"
+    with col_pdf:
+        pdf_buffer = generer_rapport_pdf(res, material, product)
+        st.download_button(
+            label="📄 Download PDF report",
+            data=pdf_buffer,
+            file_name="api650_calculation_report.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+        )
 
-    st.download_button(
-        label="📥 Download calculation report (PDF)",
-        data=pdf_buffer,
-        file_name=nom_fichier_pdf,
-        mime="application/pdf",
-        type="primary"
-    )
+    with col_excel:
+        excel_buffer = generer_rapport_excel(res, material, product)
+        st.download_button(
+            label="📊 Download Excel report",
+            data=excel_buffer,
+            file_name="api650_calculation_report.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+        )
 
     st.success("Calculation completed successfully!")
